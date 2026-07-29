@@ -1,0 +1,241 @@
+{% extends "../base.html" %}
+{% block title %}Salon Dashboard{% end %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>Welcome, {{ user['name'] }}</h2>
+    <p class="text-muted">{{ user.get('salon_name','') }}</p>
+  </div>
+  {% if not draft %}
+  <a href="/salon/order/new" class="btn btn-primary">+ New Order</a>
+  {% end %}
+</div>
+
+{% if draft %}
+<div class="alert alert-info" style="margin-bottom:1.25rem;">
+  📝 You have an unfinished draft order.
+  <a href="/salon/order/new" class="btn btn-sm btn-primary" style="margin-left:1rem;">Complete Order</a>
+</div>
+{% end %}
+
+{% if outstanding_last %}
+<!-- Outstanding items from last delivery -->
+<div class="card" style="margin-bottom:1.25rem; border-left:4px solid #E67E22; padding:1rem 1.4rem;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:.5rem; margin-bottom:.75rem;">
+    <div>
+      <h3 style="color:#A04000; margin:0; font-size:1rem;">⚠️ Outstanding from Last Delivery</h3>
+      {% if last_delivery %}
+      <p style="font-size:.78rem; color:#7A6B8A; margin:.2rem 0 0;">
+        Delivered: {{ last_delivery['delivered_at'][:10] if last_delivery['delivered_at'] else last_delivery['pack_date'] }}
+      </p>
+      {% end %}
+    </div>
+    <span style="font-size:.75rem; background:#FDEBD0; color:#A04000; font-weight:700;
+                 padding:.25rem .75rem; border-radius:99px;">
+      {{ len(outstanding_last) }} item{{ '' if len(outstanding_last) == 1 else 's' }}
+    </span>
+  </div>
+  <table class="table" style="margin:0; font-size:.875rem;">
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th style="text-align:right;">Ordered</th>
+        <th style="text-align:right; color:#27AE60;">Delivered</th>
+        <th style="text-align:right; color:#C0392B;">Outstanding</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for item in outstanding_last %}
+    <tr>
+      <td style="font-weight:600; color:#A04000;">{{ item['product_name'] }}</td>
+      <td style="text-align:right; color:#7B3FA0; font-weight:700;">
+        {{ int(item['ordered_qty']) if item['ordered_qty'] == int(item['ordered_qty']) else item['ordered_qty'] }}
+      </td>
+      <td style="text-align:right; color:#27AE60; font-weight:700;">
+        {{ int(item['del_qty']) if item['del_qty'] == int(item['del_qty']) else item['del_qty'] }}
+      </td>
+      <td style="text-align:right; color:#C0392B; font-weight:800;">
+        {{ int(item['outstanding_qty']) if item['outstanding_qty'] == int(item['outstanding_qty']) else item['outstanding_qty'] }}
+      </td>
+    </tr>
+    {% end %}
+    </tbody>
+  </table>
+  <p style="font-size:.78rem; color:#7A6B8A; margin-top:.75rem; margin-bottom:0;">
+    💡 These items will be pre-filled on your next order automatically.
+  </p>
+</div>
+{% end %}
+
+<!-- Towels — always visible -->
+<div class="card" style="margin-bottom:1.25rem; border-left:4px solid #9B59B6; padding:1rem 1.4rem;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.75rem; flex-wrap:wrap; gap:.5rem;">
+    <h3 style="color:#3D1F5C; margin:0; font-size:1rem;">🧺 Towels</h3>
+    <a href="/salon/towels" class="btn btn-sm btn-ghost"
+       style="border-color:#9B59B6; color:#9B59B6; font-size:.8rem;">
+      + Record Towels
+    </a>
+  </div>
+
+  {% set display_towels = [(t, active_order_towels.get(t, 0), last_towel_sent.get(t, 0)) for t in towel_types if active_order_towels.get(t, 0) > 0 or last_towel_sent.get(t, 0) > 0] %}
+
+  {% if display_towels %}
+  <table class="table" style="margin:0; font-size:.875rem; max-width:460px;">
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th style="text-align:center;">🧺 Collected (Dirty)</th>
+        <th style="text-align:center;">✅ Returned (Clean)</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for t_name, vuil, skoon in display_towels %}
+    <tr>
+      <td style="font-weight:600;">{{ t_name }}</td>
+      <td style="text-align:center; font-weight:700; color:#A04000;">
+        {% if vuil > 0 %}{{ int(vuil) if vuil == int(vuil) else vuil }}{% else %}–{% end %}
+      </td>
+      <td style="text-align:center; font-weight:700; color:#27AE60;">
+        {% if skoon > 0 %}{{ int(skoon) if skoon == int(skoon) else skoon }}{% else %}–{% end %}
+      </td>
+    </tr>
+    {% end %}
+    </tbody>
+  </table>
+  <p style="font-size:.75rem; color:#7A6B8A; margin:.65rem 0 0;">
+    💡 <strong>Collected (Dirty)</strong> comes from your active order. <strong>Returned (Clean)</strong> is updated with each delivery.
+  </p>
+
+  {% elif last_towel_logs %}
+  {% set collected_logs = [t for t in last_towel_logs if t['collected'] > 0] %}
+  {% if collected_logs %}
+  <table class="table" style="margin:0; font-size:.875rem; max-width:280px;">
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th style="text-align:center;">🧺 Collected (Dirty)</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for t in collected_logs %}
+    <tr>
+      <td style="font-weight:600;">{{ t['towel_type'] }}</td>
+      <td style="text-align:center; font-weight:700; color:#A04000;">
+        {{ int(t['collected']) if t['collected'] == int(t['collected']) else t['collected'] }}
+      </td>
+    </tr>
+    {% end %}
+    </tbody>
+  </table>
+  <p style="font-size:.75rem; color:#7A6B8A; margin:.65rem 0 0;">
+    💡 These quantities will be pre-filled on your next order automatically.
+  </p>
+  {% else %}
+  <p style="color:#7A6B8A; font-size:.875rem; margin:0;">No towels collected in last record.</p>
+  {% end %}
+
+  {% else %}
+  <p style="color:#7A6B8A; font-size:.875rem; margin:0;">
+    No towel records yet. Click <strong>+ Record Towels</strong> to get started.
+  </p>
+  {% end %}
+
+  {% if last_towel_logs %}
+  {% set mismatches = [(t['towel_type'], t['sent'], t['collected']) for t in last_towel_logs if int(t['sent']) != int(t['collected'])] %}
+  {% if mismatches %}
+  <div style="background:#FEF9E7; border:1px solid #F0C040; border-radius:8px;
+              padding:.6rem .9rem; margin-top:.75rem; font-size:.82rem; color:#8B6914;">
+    ⚠️ <strong>Mismatch (last record):</strong>
+    {% for idx, mm in enumerate(mismatches) %}{{ mm[0] }}: sent {{ int(mm[1]) if mm[1]==int(mm[1]) else mm[1] }}, collected {{ int(mm[2]) if mm[2]==int(mm[2]) else mm[2] }}{% if idx < len(mismatches) - 1 %} · {% end %}{% end %}
+  </div>
+  {% end %}
+  {% end %}
+</div>
+
+<!-- ── Active Orders ── -->
+<div class="card" style="margin-bottom:1.25rem;">
+  <h3 style="margin-bottom:1rem;">Active Orders</h3>
+  {% if active_orders %}
+  <table class="table">
+    <thead><tr>
+      <th>Pack Date</th>
+      <th>Status</th>
+      <th>Submitted</th>
+      <th style="text-align:right;"></th>
+    </tr></thead>
+    <tbody>
+    {% for o in active_orders %}
+    {% set is_out = o.get('has_outstanding', False) %}
+    <tr>
+      <td style="font-weight:600;">{{ o['pack_date'] }}</td>
+      <td>
+        {% if o['status'] == 'packed' and is_out %}
+        <span style="background:#FEF0E6; color:#E67E22; font-weight:700; padding:.2rem .6rem;
+                     border-radius:99px; font-size:.78rem;">📦 Gepak – Uitstaande items</span>
+        {% elif o['status'] == 'packed' %}
+        <span style="background:#D5F5E3; color:#1E8449; font-weight:700; padding:.2rem .6rem;
+                     border-radius:99px; font-size:.78rem;">✅ Gepak</span>
+        {% else %}
+        <span style="background:#FDEBD0; color:#A04000; font-weight:700; padding:.2rem .6rem;
+                     border-radius:99px; font-size:.78rem;">⏳ Ingedien (nog nie gepak)</span>
+        {% end %}
+      </td>
+      <td style="color:#7A6B8A; font-size:.875rem;">{{ o['submitted_at'] or '–' }}</td>
+      <td style="text-align:right;">
+        <div style="display:flex; gap:.4rem; justify-content:flex-end; flex-wrap:wrap;">
+          <a href="/salon/order/{{ o['id'] }}" class="btn btn-sm btn-ghost">View</a>
+          {% if o['status'] == 'submitted' %}
+          <form method="POST" action="/salon/order/{{ o['id'] }}/revert" style="margin:0;"
+                onsubmit="return confirm('Revert order back to draft?')">
+            <button type="submit" class="btn btn-sm btn-ghost"
+                    style="border-color:#7B3FA0; color:#7B3FA0;">✏️ Edit</button>
+          </form>
+          {% end %}
+          <a href="/salon/order/{{ o['id'] }}/deliver"
+             class="btn btn-sm btn-primary"
+             style="background:#27AE60; border-color:#27AE60;">
+            🚚 Delivery
+          </a>
+        </div>
+      </td>
+    </tr>
+    {% end %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="text-muted">No active orders.</p>
+  {% end %}
+</div>
+
+<!-- ── Delivered Orders ── -->
+<div class="card">
+  <h3 style="margin-bottom:1rem;">Delivered Orders</h3>
+  {% if delivered_orders %}
+  <table class="table">
+    <thead><tr>
+      <th>Pack Date</th>
+      <th>Delivered</th>
+      <th>Signed by</th>
+      <th style="text-align:right;"></th>
+    </tr></thead>
+    <tbody>
+    {% for o in delivered_orders %}
+    <tr>
+      <td style="font-weight:600;">{{ o['pack_date'] }}</td>
+      <td style="color:#1E8449; font-size:.875rem; font-weight:600;">
+        ✅ {{ o['delivered_at'][:10] if o['delivered_at'] else '–' }}
+      </td>
+      <td style="font-size:.875rem; color:#7A6B8A;">{{ o['signed_by'] or '–' }}</td>
+      <td style="text-align:right;">
+        <a href="/salon/order/{{ o['id'] }}" class="btn btn-sm btn-ghost">View</a>
+      </td>
+    </tr>
+    {% end %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="text-muted">No delivered orders yet.</p>
+  {% end %}
+</div>
+
+{% end %}

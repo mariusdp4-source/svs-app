@@ -1,0 +1,191 @@
+{% extends "../base.html" %}
+{% block title %}Order Review{% end %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h2>Order Review</h2>
+    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem">
+      Review your order — remove items, add notes, or add more items
+    </p>
+  </div>
+</div>
+
+<!-- Hidden confirm form (notes are injected by JS) -->
+<form id="confirmForm" method="POST"
+      action="/salon/order/preview/{{ order['id'] }}/confirm">
+</form>
+
+<div class="card" style="margin-bottom:1.25rem">
+  <div style="display:flex; gap:2.5rem; flex-wrap:wrap; align-items:center;">
+    <div>
+      <span style="font-size:.78rem; color:#7A6B8A; text-transform:uppercase; letter-spacing:.04em;">Pack Date</span>
+      <div style="font-weight:700; color:#3D1F5C; font-size:1rem; margin-top:.15rem;">{{ order['pack_date'] }}</div>
+    </div>
+    {% if order['notes'] %}
+    <div>
+      <span style="font-size:.78rem; color:#7A6B8A; text-transform:uppercase; letter-spacing:.04em;">Notes</span>
+      <div style="font-weight:600; color:#2C1A3E; margin-top:.15rem;">{{ order['notes'] }}</div>
+    </div>
+    {% end %}
+    <div style="margin-left:auto;">
+      <span class="badge badge-draft" style="font-size:.8rem; padding:.3rem .9rem;">Draft</span>
+    </div>
+  </div>
+</div>
+
+{% set categories = ['Salon','Cleaning','Perms','Tints','Retail'] %}
+{% set towel_preview = [i for i in items if i['category'] == 'Handoeke' and i['quantity'] > 0] %}
+{% set prod_items    = [i for i in items if i['category'] != 'Handoeke'] %}
+{% set has_items     = len(prod_items) > 0 or len(towel_preview) > 0 %}
+
+{% if not has_items %}
+<div class="card" style="text-align:center; padding:2.5rem; color:#7A6B8A;">
+  <p style="font-size:1.1rem; margin-bottom:.75rem">No items in this order.</p>
+  <a href="/salon/order/new" class="btn btn-ghost">← Add Items</a>
+</div>
+{% else %}
+
+{% for cat in categories %}
+  {% set cat_items = [i for i in prod_items if i['category'] == cat] %}
+  {% if cat_items %}
+  <div class="card" style="margin-bottom:1rem; padding:1.25rem 1.5rem;">
+    <h3 style="margin-bottom:.75rem; color:#3D1F5C;">{{ cat }}</h3>
+    <table class="table" style="table-layout:fixed; width:100%;">
+      <colgroup>
+        <col style="width:36%">
+        <col style="width:14%">
+        <col style="width:40%">
+        <col style="width:10%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th style="text-align:right;">Quantity</th>
+          <th>Note</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in cat_items %}
+      <tr>
+        <td>{{ item['product_name'] }}</td>
+        <td style="text-align:right;">
+          <input type="number"
+                 class="item-qty"
+                 data-item-id="{{ item['id'] }}"
+                 value="{{ int(item['quantity']) if item['quantity'] == int(item['quantity']) else item['quantity'] }}"
+                 min="1" step="1"
+                 style="width:55px; text-align:center; border:1.5px solid #D5C8E8;
+                        border-radius:6px; padding:.25rem .3rem; font-size:.9rem;
+                        font-weight:700; color:#7B3FA0;">
+        </td>
+        <td>
+          <input type="text"
+                 class="item-note"
+                 data-item-id="{{ item['id'] }}"
+                 value="{{ item['note'] or '' }}"
+                 placeholder="Add a note..."
+                 style="width:100%; border:1px solid #D5C8E8; border-radius:5px;
+                        padding:.28rem .55rem; font-size:.82rem; color:#2C1A3E;
+                        background:#FAFAFE;">
+        </td>
+        <td style="text-align:center;">
+          <form method="POST" action="/salon/order/item/{{ item['id'] }}/delete"
+                style="margin:0; display:inline;"
+                onsubmit="return confirm('Remove {{ item['product_name'] }}?')">
+            <button type="submit" title="Remove item"
+              style="background:none; border:1.5px solid #F5B7B1; border-radius:6px;
+                     cursor:pointer; color:#C0392B; padding:.22rem .5rem;
+                     font-size:.9rem; line-height:1;">🗑</button>
+          </form>
+        </td>
+      </tr>
+      {% end %}
+      </tbody>
+    </table>
+  </div>
+  {% end %}
+{% end %}
+
+<!-- Towels — always visible on preview -->
+<div class="card" style="margin-bottom:1rem; padding:1.25rem 1.5rem; border:2px solid #9B59B6;">
+  <h3 style="margin-bottom:.75rem; color:#3D1F5C;">🧺 Towels</h3>
+  {% if towel_preview %}
+  <table class="table" style="table-layout:fixed; width:100%; max-width:520px;">
+    <colgroup>
+      <col style="width:40%">
+      <col style="width:15%">
+      <col style="width:45%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th style="text-align:center;">Needed</th>
+        <th>Note</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for item in towel_preview %}
+    <tr>
+      <td style="font-weight:600; color:#3D1F5C;">{{ item['product_name'] }}</td>
+      <td style="text-align:center; font-weight:700; color:#7B3FA0;">
+        {{ int(item['quantity']) if item['quantity'] == int(item['quantity']) else item['quantity'] }}
+      </td>
+      <td style="color:#7A6B8A; font-size:.82rem;">{{ item['note'] or '' }}</td>
+    </tr>
+    {% end %}
+    </tbody>
+  </table>
+  <p style="font-size:.75rem; color:#7A6B8A; margin:.65rem 0 0;">
+    ℹ️ Towel quantities cannot be changed on this review page — go back to adjust them.
+  </p>
+  {% else %}
+  <p style="color:#A04000; font-size:.875rem; margin:0 0 .5rem;">
+    ⚠️ No towels added for this order.
+  </p>
+  <p style="font-size:.8rem; color:#7A6B8A; margin:0;">
+    Click <strong>← Add Items</strong> and go to the 🧺 Towels tab to enter quantities.
+  </p>
+  {% end %}
+</div>
+
+{% end %}
+
+<!-- Action buttons -->
+<div style="margin-top:1.75rem; display:flex; gap:1rem;
+            justify-content:space-between; align-items:center; flex-wrap:wrap;">
+  <a href="/salon/order/new" class="btn btn-secondary btn-lg">
+    ← Add Items
+  </a>
+  {% if has_items %}
+  <button type="button" class="btn btn-primary btn-lg" onclick="submitWithNotes()">
+    ✓ Submit Order to HO
+  </button>
+  {% end %}
+</div>
+
+{% end %}
+{% block scripts %}
+<script>
+function submitWithNotes() {
+  if (!confirm('Confirm you want to submit this order to HO?')) return;
+  var form = document.getElementById('confirmForm');
+  document.querySelectorAll('.item-note').forEach(function(inp) {
+    var h = document.createElement('input');
+    h.type  = 'hidden';
+    h.name  = 'note_' + inp.dataset.itemId;
+    h.value = inp.value;
+    form.appendChild(h);
+  });
+  document.querySelectorAll('.item-qty').forEach(function(inp) {
+    var h = document.createElement('input');
+    h.type  = 'hidden';
+    h.name  = 'qty_' + inp.dataset.itemId;
+    h.value = inp.value || '1';
+    form.appendChild(h);
+  });
+  form.submit();
+}
+</script>
+{% end %}

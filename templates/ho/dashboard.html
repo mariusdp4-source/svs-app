@@ -1,0 +1,125 @@
+{% extends "../base.html" %}
+{% block title %}HO Dashboard{% end %}
+{% block content %}
+<div class="page-header">
+  <h2>HO Dashboard</h2>
+  <span class="text-muted">Welcome, {{ user['name'] }}</span>
+</div>
+
+<!-- ── Current Week Salon Status ── -->
+<div class="card" style="margin-bottom:1.5rem; padding:1.25rem 1.5rem;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:.5rem;">
+    <div>
+      <h3 style="color:#3D1F5C; margin:0;">📅 Current Week</h3>
+      <p style="color:#7A6B8A; font-size:.83rem; margin:.15rem 0 0;">
+        {{ cur_monday }} → {{ cur_friday }}
+      </p>
+    </div>
+    <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+      <a href="/ho/week/{{ cur_monday }}" class="btn btn-sm btn-ghost">View Orders</a>
+      <a href="/ho/week/{{ cur_monday }}/packing-list" class="btn btn-sm btn-secondary">↓ Packing List</a>
+    </div>
+  </div>
+
+  <!-- Salon cards grid -->
+  <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:.75rem;">
+  {% for s in cur_week_salons %}
+  {% set st = s['status'] %}
+  {% set is_packed_out = st == 'packed' and s.get('has_outstanding', False) %}
+  <div style="border-radius:10px; padding:.85rem 1rem;
+       border:1.5px solid {% if not st %}#E5DFF0
+                          {% elif is_packed_out %}#E67E22
+                          {% elif st == 'packed' %}#A9DFBF
+                          {% elif st == 'delivered' %}#C39BD3
+                          {% else %}#FAD7A0{% end %};
+       background:{% if not st %}#FAFAFA
+                  {% elif is_packed_out %}#FFF8F2
+                  {% elif st == 'packed' %}#F2FDF5
+                  {% elif st == 'delivered' %}#F5EEF8
+                  {% else %}#FFFBF4{% end %};">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.35rem;">
+      <span style="font-size:1.05rem; font-weight:800; color:#3D1F5C;">{{ s['code'] }}</span>
+      <span style="font-size:.68rem; font-weight:700; padding:.12rem .45rem; border-radius:99px;
+        {% if not st %}background:#EDE9F5; color:#9B8CAE;
+        {% elif is_packed_out %}background:#FEF0E6; color:#E67E22;
+        {% elif st == 'packed' %}background:#D5F5E3; color:#1E8449;
+        {% elif st == 'delivered' %}background:#EDE9F5; color:#7B3FA0;
+        {% else %}background:#FDEBD0; color:#A04000;{% end %}">
+        {% if not st %}⬜ Not submitted
+        {% elif is_packed_out %}📦 Packed – Outstanding
+        {% elif st == 'packed' %}✅ Packed
+        {% elif st == 'delivered' %}🚚 Delivered
+        {% else %}⏳ Submitted{% end %}
+      </span>
+    </div>
+    <p style="font-size:.78rem; color:#7A6B8A; margin:.1rem 0 .4rem;">{{ s['name'] }}</p>
+    {% if s['submitted_at'] %}
+    <p style="font-size:.7rem; color:#B0A8BC; margin:0 0 .5rem;">
+      📅 {{ (s['submitted_at'] or '')[:16].replace('T',' ') }}
+    </p>
+    {% else %}
+    <p style="font-size:.7rem; color:#C8BFD8; margin:0 0 .5rem; font-style:italic;">
+      No order yet
+    </p>
+    {% end %}
+    {% if s['order_id'] %}
+    <a href="/ho/order/{{ s['order_id'] }}"
+       style="display:inline-block; font-size:.75rem; font-weight:700;
+              padding:.2rem .65rem; border-radius:6px; text-decoration:none;
+              {% if is_packed_out %}background:#E67E22; color:#fff;
+              {% elif st == 'packed' %}background:#27AE60; color:#fff;
+              {% elif st == 'delivered' %}background:#9B59B6; color:#fff;
+              {% else %}background:#7B3FA0; color:#fff;{% end %}">
+      {% if is_packed_out %}📦 Pack Outstanding
+      {% elif st == 'packed' %}✅ View
+      {% elif st == 'delivered' %}🚚 View
+      {% else %}📦 Pack{% end %}
+    </a>
+    {% end %}
+  </div>
+  {% end %}
+  </div>
+
+  <!-- Summary bar -->
+  {% set n_submitted = len([s for s in cur_week_salons if s['status'] == 'submitted']) %}
+  {% set n_packed    = len([s for s in cur_week_salons if s['status'] == 'packed']) %}
+  {% set n_none      = len([s for s in cur_week_salons if not s['status']]) %}
+  <div style="display:flex; gap:1.25rem; margin-top:1rem; padding-top:.75rem;
+              border-top:1px solid #EDE0F8; flex-wrap:wrap;">
+    <span style="font-size:.82rem; color:#A04000; font-weight:600;">⏳ {{ n_submitted }} submitted</span>
+    <span style="font-size:.82rem; color:#27AE60; font-weight:600;">✅ {{ n_packed }} packed</span>
+    <span style="font-size:.82rem; color:#B0A8BC; font-weight:600;">⬜ {{ n_none }} not yet</span>
+  </div>
+</div>
+
+<!-- ── Packing Weeks ── -->
+<div class="card">
+  <h3 style="margin-bottom:.75rem; color:#3D1F5C;">📋 Packing Weeks</h3>
+  {% if weeks %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Week</th>
+        <th style="text-align:right;"></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for w in weeks %}
+    <tr>
+      <td>
+        <span style="font-weight:700; color:#3D1F5C;">{{ w['label'] }}</span>
+      </td>
+      <td style="text-align:right;">
+        <a href="/ho/week/{{ w['monday'] }}" class="btn btn-sm btn-ghost">Orders</a>
+        <a href="/ho/week/{{ w['monday'] }}/packing-list" class="btn btn-sm btn-secondary">↓ Packing List</a>
+      </td>
+    </tr>
+    {% end %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="text-muted">No orders received yet.</p>
+  {% end %}
+</div>
+
+{% end %}

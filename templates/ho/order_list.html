@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SVS – Order List – {{ pack_date }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 11pt;
+    color: #1a1a2e;
+    background: #fff;
+    padding: 1.5cm 1.8cm;
+  }
+
+  /* ── Header ── */
+  .print-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 3px solid #1565C0;
+    padding-bottom: .6rem;
+    margin-bottom: 1.2rem;
+  }
+  .print-header h1 {
+    font-size: 18pt;
+    color: #1565C0;
+    font-weight: 800;
+    letter-spacing: -.02em;
+  }
+  .print-header .sub {
+    font-size: 9pt;
+    color: #7A6B8A;
+    margin-top: .15rem;
+  }
+  .print-header .meta {
+    text-align: right;
+    font-size: 9pt;
+    color: #555;
+  }
+  .print-header .meta strong { color: #1565C0; }
+
+  /* ── Summary ── */
+  .summary-bar {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1.2rem;
+    font-size: 9pt;
+  }
+  .summary-bar .num {
+    font-size: 18pt;
+    font-weight: 800;
+    color: #1565C0;
+    line-height: 1;
+  }
+  .summary-bar .label { color: #7A6B8A; font-size: 7.5pt; margin-top: .15rem; }
+
+  /* ── Supplier section ── */
+  .supplier-section {
+    margin-bottom: 1.5rem;
+    break-inside: avoid;
+  }
+
+  .supplier-title {
+    background: #1565C0;
+    color: #fff;
+    padding: .32rem .75rem;
+    font-size: 10pt;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    border-radius: 4px 4px 0 0;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .supplier-title .item-count {
+    font-size: 7.5pt;
+    background: rgba(255,255,255,.25);
+    border-radius: 99px;
+    padding: .05rem .45rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+    table-layout: fixed;
+  }
+  col.col-cb    { width: 3%; }
+  col.col-name  { width: 32%; }
+  col.col-cat   { width: 12%; }
+  col.col-need  { width: 9%; }
+  col.col-ord   { width: 9%; }
+  col.col-notes { width: 35%; }
+
+  thead tr { background: #E3F2FD; }
+  thead th {
+    padding: .28rem .55rem;
+    font-size: 8pt;
+    font-weight: 700;
+    color: #1565C0;
+    text-align: left;
+    border-bottom: 1.5px solid #90CAF9;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  thead th.center { text-align: center; }
+  thead th.right  { text-align: right; }
+
+  tbody tr:nth-child(even) { background: #F8FBFF; }
+  tbody tr:nth-child(odd)  { background: #fff; }
+
+  tbody td {
+    padding: .38rem .55rem;
+    border-bottom: 1px solid #E3F2FD;
+    vertical-align: middle;
+    overflow: hidden;
+  }
+  td.cb        { text-align: center; font-size: 13pt; color: #999; }
+  td.name      { font-weight: 600; color: #2C1A3E; word-break: break-word; }
+  td.qty       { text-align: center; font-weight: 800; color: #1565C0; font-size: 11pt; }
+  td.cat       { font-size: 8pt; text-align: center; }
+  td.notes-cell { font-size: 8.5pt; color: #555; }
+  td.notes-cell .notes-line {
+    display: block;
+    border-bottom: 1px dotted #C5D8F0;
+    min-height: 16px;
+    padding-bottom: 2px;
+  }
+
+  .cat-badge {
+    display: inline-block;
+    padding: .1rem .4rem;
+    border-radius: 6px;
+    font-size: 7.5pt;
+    font-weight: 700;
+  }
+
+  /* ── Footer ── */
+  .print-footer {
+    margin-top: 1.5rem;
+    padding-top: .6rem;
+    border-top: 1px solid #90CAF9;
+    font-size: 8pt;
+    color: #999;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* ── Print / screen ── */
+  @media print {
+    body { padding: 0; }
+    .no-print { display: none !important; }
+    @page { margin: 1.2cm 1.5cm; }
+    .supplier-section { break-inside: avoid; }
+  }
+  @media screen {
+    body { max-width: 960px; margin: 0 auto; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Buttons (screen only) -->
+<div class="no-print" style="
+  position: fixed; top: 1rem; right: 1rem;
+  display: flex; gap: .5rem; z-index: 100;">
+  <a href="/ho/week/{{ pack_date }}"
+     style="text-decoration:none; padding:.45rem 1rem; border-radius:8px;
+            border:1.5px solid #D5C8E8; font-size:.85rem; color:#3D1F5C;
+            background:#fff; font-family:sans-serif; cursor:pointer;">
+    ← Back
+  </a>
+  <a href="/ho/week/{{ pack_date }}/order-list-word"
+     style="text-decoration:none; padding:.45rem 1.1rem; border-radius:8px;
+            border:1.5px solid #90CAF9; font-size:.85rem; color:#1565C0;
+            background:#E3F2FD; font-family:sans-serif; font-weight:600; cursor:pointer;">
+    ⬇️ Word Doc
+  </a>
+  <button onclick="window.print()"
+          style="padding:.45rem 1.1rem; border-radius:8px; border:none;
+                 background:#1565C0; color:#fff; font-size:.85rem;
+                 font-family:sans-serif; cursor:pointer; font-weight:600;">
+    🖨️ Print
+  </button>
+</div>
+
+<!-- Header -->
+<div class="print-header">
+  <div>
+    <h1>SVS Stock &nbsp;·&nbsp; Order List</h1>
+    <div class="sub">Silver Violet Studios – Outstanding items grouped by supplier</div>
+  </div>
+  <div class="meta">
+    <strong>Week:</strong> {{ pack_date }} → {{ week_friday }}<br>
+    <strong>Printed:</strong> <span id="printDate"></span><br>
+    <strong style="color:#C0392B;">⚠ Items still needed</strong>
+  </div>
+</div>
+
+<!-- Summary counts -->
+{% set total_items = sum(len(v) for v in suppliers.values()) %}
+<div class="summary-bar">
+  <div>
+    <div class="num">{{ len(suppliers) }}</div>
+    <div class="label">suppliers</div>
+  </div>
+  <div>
+    <div class="num">{{ total_items }}</div>
+    <div class="label">products to order</div>
+  </div>
+  <div>
+    <div class="num">{{ int(sum(sum(i.get('qty_ordered', i['qty_needed']) for i in v) for v in suppliers.values())) }}</div>
+    <div class="label">total units to order</div>
+  </div>
+</div>
+
+{% if suppliers %}
+  {% for supplier, items in suppliers.items() %}
+  <div class="supplier-section">
+    <div class="supplier-title">
+      🏢 {{ supplier }}
+      <span class="item-count">{{ len(items) }} item{{ 's' if len(items) != 1 else '' }}</span>
+    </div>
+    <table>
+      <colgroup>
+        <col class="col-cb">
+        <col class="col-name">
+        <col class="col-cat">
+        <col class="col-need">
+        <col class="col-ord">
+        <col class="col-notes">
+      </colgroup>
+      <thead>
+        <tr>
+          <th class="center">☐</th>
+          <th>Product</th>
+          <th class="center">Category</th>
+          <th class="center" style="color:#C0392B;">Needed</th>
+          <th class="center" style="color:#1565C0;">Order Qty</th>
+          <th style="color:#555;">Notes / Remarks</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in items %}
+      {% set display_qty = item.get('qty_ordered', item['qty_needed']) %}
+      {% set is_extra = item['qty_needed'] == 0 %}
+      <tr>
+        <td class="cb">☐</td>
+        <td class="name">
+          {{ item['product_name'] }}
+          {% if is_extra %}
+          <span style="font-size:.68rem; background:#E3F2FD; color:#1565C0; border-radius:4px;
+                       padding:.05rem .3rem; margin-left:.25rem; font-weight:700;">+EXTRA</span>
+          {% end %}
+        </td>
+        <td class="cat" style="text-align:center;">
+          <span class="cat-badge" style="
+            {% if item['category'] == 'Salon' %}background:#EAE2F4; color:#3D1F5C;
+            {% elif item['category'] == 'Cleaning' %}background:#E8F5E9; color:#2E7D32;
+            {% elif item['category'] == 'Perms' %}background:#FFF3E0; color:#E65100;
+            {% elif item['category'] == 'Retail' %}background:#E3F2FD; color:#1565C0;
+            {% elif item['category'] == 'Tints' %}background:#FCE4EC; color:#880E4F;
+            {% else %}background:#F5F5F5; color:#555;
+            {% end %}">
+            {{ item['category'] }}
+          </span>
+        </td>
+        <td style="text-align:center; font-weight:700; color:{% if is_extra %}#9B8CAE{% else %}#C0392B{% end %}; font-size:9.5pt;">
+          {% if is_extra %}—{% else %}
+          {{ int(item['qty_needed']) if item['qty_needed'] == int(item['qty_needed']) else item['qty_needed'] }}
+          {% end %}
+        </td>
+        <td style="text-align:center; font-weight:800; color:#1565C0; font-size:11pt;">
+          {{ int(display_qty) if display_qty == int(display_qty) else display_qty }}
+        </td>
+        <td class="notes-cell">
+          {% if item.get('notes') %}
+          <span class="notes-line" style="color:#333; font-style:italic;">{{ item['notes'] }}</span>
+          {% else %}
+          <span class="notes-line">&nbsp;</span>
+          {% end %}
+        </td>
+      </tr>
+      {% end %}
+      </tbody>
+    </table>
+  </div>
+  {% end %}
+{% else %}
+<div style="text-align:center; padding:3rem; color:#27AE60; font-size:14pt;">
+  ✅ Nothing outstanding — all items packed!
+</div>
+{% end %}
+
+<!-- Footer -->
+<div class="print-footer">
+  <span>Silver Violet Studios – SVS Stock System</span>
+  <span>{{ pack_date }}</span>
+</div>
+
+<script>
+  document.getElementById('printDate').textContent =
+    new Date().toLocaleDateString('en-ZA', {day:'2-digit', month:'2-digit', year:'numeric',
+    hour:'2-digit', minute:'2-digit'});
+  if (window.location.hash === '#print') window.print();
+</script>
+</body>
+</html>

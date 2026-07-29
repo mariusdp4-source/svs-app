@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}SVS Stock{% end %} – Silver Violet Studios</title>
+<link rel="stylesheet" href="/static/css/style.css?v=6">
+</head>
+<body>
+<header class="app-header">
+  <div class="header-inner">
+    <div class="header-brand">
+      <img src="/static/images/logo.png" alt="SVS" class="header-logo" onerror="this.style.display='none'">
+      <div>
+        <div class="header-title">Silver Violet Studios</div>
+        <div class="header-sub">Stock Portal</div>
+      </div>
+    </div>
+    <nav class="header-nav">
+      {% if current_user %}
+        {% if current_user['role'] == 'ho_admin' %}
+          <a href="/ho/dashboard" class="nav-link">Dashboard</a>
+          <a href="/ho/products" class="nav-link">Products</a>
+          <a href="/ho/stocktake" class="nav-link">Stock Take</a>
+        {% else %}
+          <a href="/salon/dashboard" class="nav-link">Dashboard</a>
+          <a href="/salon/order/new" class="nav-link">New Order</a>
+        {% end %}
+        <span class="nav-user">{{ current_user['name'] }}</span>
+        <a href="/logout" class="nav-link nav-logout">Log Out</a>
+      {% end %}
+    </nav>
+  </div>
+</header>
+<main class="main-content">
+  {% block content %}{% end %}
+</main>
+<footer class="app-footer">
+  <span>© 2026 Marius du Plessis</span>
+</footer>
+{% block scripts %}{% end %}
+</body>
+</html>

@@ -1,0 +1,302 @@
+{% extends "../base.html" %}
+{% block title %}{% if order['status'] == 'delivered' %}Order{% else %}Pack{% end %} – {{ order['salon_code'] }} {{ order['pack_date'] }}{% end %}
+{% block content %}
+{% set is_delivered = order['status'] == 'delivered' %}
+
+<div class="page-header">
+  <div>
+    <h2>{% if is_delivered %}📋{% else %}📦{% end %} {{ order['salon_code'] }} – {{ order['salon_name'] }}</h2>
+    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem">
+      Pack Date: <strong>{{ order['pack_date'] }}</strong>
+      &nbsp;·&nbsp; Submitted: {{ order['submitted_at'] or '–' }}
+    </p>
+  </div>
+  <span class="badge badge-{{ order['status'] }}" style="font-size:.9rem; padding:.35rem 1rem;">
+    {% if order['status'] == 'submitted' %}⏳ Submitted
+    {% elif order['status'] == 'packed' %}✅ Packed
+    {% elif order['status'] == 'delivered' %}🚚 Delivered
+    {% else %}{{ order['status'] }}
+    {% end %}
+  </span>
+</div>
+
+{% if is_delivered %}
+<div class="card" style="margin-bottom:1.25rem; padding:.9rem 1.5rem;
+                          border-left:4px solid #9B59B6; background:#F5EEF8;">
+  <p style="margin:0; font-weight:700; color:#6C3483; font-size:.9rem;">
+    🚚 Hierdie bestelling is afgelewer — geen wysigings moontlik nie.
+  </p>
+</div>
+{% end %}
+
+<!-- Progress bar -->
+{% set pct = int(packed_count * 100 / total) if total > 0 else 0 %}
+{% set unpacked_items = [i for i in items if not i['packed'] and i['category'] != 'Handoeke'] %}
+<div class="card" style="margin-bottom:1.25rem; padding:1rem 1.5rem;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
+    <span style="font-weight:600; color:#3D1F5C;">Packing Progress</span>
+    <span style="font-size:.9rem; color:#7A6B8A;" id="progressLabel">{{ packed_count }} / {{ total }} items packed</span>
+  </div>
+  <div style="background:#EDE9F5; border-radius:99px; height:10px; overflow:hidden;">
+    <div id="progressBar"
+         style="background:{% if pct == 100 %}#27AE60{% else %}#7B3FA0{% end %};
+                height:100%; width:{{ pct }}%; border-radius:99px;
+                transition:width .4s ease;"></div>
+  </div>
+  {% if pct == 100 %}
+  <p style="color:#27AE60; font-size:.85rem; margin-top:.5rem; font-weight:600;">
+    ✅ All packed!
+  </p>
+  {% elif unpacked_items %}
+  <div style="margin-top:.6rem; font-size:.8rem; color:#A04000;">
+    <strong>⏳ Still to pack:</strong>
+    {% for idx, i in enumerate(unpacked_items) %}{{ i['product_name'] }}{% if i['quantity'] > 1 %} ×{{ int(i['quantity']) }}{% end %}{% if idx < len(unpacked_items) - 1 %} · {% end %}{% end %}
+  </div>
+  {% end %}
+</div>
+
+{% if not is_delivered %}
+<form method="POST" action="/ho/order/{{ order['id'] }}/pack-items" id="packForm">
+{% end %}
+
+  {% set categories = ['Salon','Cleaning','Perms','Tints','Retail'] %}
+  {% for cat in categories %}
+    {% set cat_items = [i for i in items if i['category'] == cat] %}
+    {% if cat_items %}
+    <div class="card" style="margin-bottom:1rem; padding:1.25rem 1.5rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.75rem;">
+        <h3 style="color:#3D1F5C; margin:0;">{{ cat }}</h3>
+        {% if not is_delivered %}
+        <div style="display:flex; gap:.5rem;">
+          <button type="button" class="btn btn-sm btn-ghost"
+                  onclick="selectCat('{{ cat }}', true)">✓ All</button>
+          <button type="button" class="btn btn-sm btn-secondary"
+                  onclick="selectCat('{{ cat }}', false)">Uncheck</button>
+        </div>
+        {% end %}
+      </div>
+      <table class="table" style="table-layout:fixed; width:100%;">
+        <colgroup>
+          <col style="width:5%">
+          <col style="width:31%">
+          <col style="width:9%">
+          <col style="width:12%">
+          <col style="width:15%">
+          <col style="width:28%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th title="Packed?">✓</th>
+            <th>Product</th>
+            <th style="text-align:right; white-space:nowrap;">Ordered</th>
+            <th style="text-align:center; white-space:nowrap; color:#27AE60;">Packed Qty</th>
+            <th style="text-align:center; white-space:nowrap;">Status</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody id="cat-{{ cat }}">
+        {% for item in cat_items %}
+        {% set eff_pqty = item['packed_qty'] if item.get('packed_qty') else item['quantity'] %}
+        {% set is_partial = bool(item['packed']) and eff_pqty < item['quantity'] %}
+        <tr id="irow-{{ item['id'] }}"
+            style="{% if is_partial %}background:#FEF0E6;
+                   {% elif item['packed'] %}background:#EAFAF1;
+                   {% else %}background:#FEF6E4;{% end %}
+                   transition:background .25s;">
+          <td style="text-align:center;">
+            <input type="checkbox"
+                   name="pack_{{ item['id'] }}"
+                   id="chk_{{ item['id'] }}"
+                   {% if item['packed'] %}checked{% end %}
+                   {% if not is_delivered %}onchange="toggleItemRow({{ item['id'] }}, this.checked)"{% end %}
+                   {% if is_delivered %}disabled{% end %}
+                   style="width:18px; height:18px; cursor:{% if is_delivered %}default{% else %}pointer{% end %}; accent-color:#27AE60;">
+          </td>
+          <td>
+            <label for="chk_{{ item['id'] }}"
+                   style="cursor:{% if is_delivered %}default{% else %}pointer{% end %}; font-size:.875rem;
+                          {% if item['packed'] %}text-decoration:line-through; color:#999;{% end %}"
+                   id="lbl_{{ item['id'] }}">
+              {{ item['product_name'] }}
+              {% if item.get('is_custom') and item['category'] != 'Tints' %}
+              <span style="font-size:.68rem; font-weight:800; background:#F39C12; color:#fff;
+                           padding:.1rem .4rem; border-radius:99px; margin-left:.35rem;
+                           vertical-align:middle;">✱ Once-off</span>
+              {% end %}
+            </label>
+            {% if item['note'] %}
+            <div style="font-size:.76rem; color:#7A6B8A; margin-top:.1rem;">📝 {{ item['note'] }}</div>
+            {% end %}
+          </td>
+          <td style="text-align:right; font-weight:700; color:#7B3FA0;">
+            {{ int(item['quantity']) if item['quantity'] == int(item['quantity']) else item['quantity'] }}
+          </td>
+          {% set pqty_default = item.get('packed_qty') or item['quantity'] %}
+          <td style="text-align:center;">
+            <input type="number"
+                   name="pqty_{{ item['id'] }}"
+                   id="pqty_{{ item['id'] }}"
+                   value="{{ int(pqty_default) if pqty_default == int(pqty_default) else pqty_default }}"
+                   data-ordered="{{ int(item['quantity']) if item['quantity'] == int(item['quantity']) else item['quantity'] }}"
+                   min="0" step="1"
+                   {% if is_delivered %}disabled{% end %}
+                   style="width:62px; text-align:center;
+                          border:1.5px solid #A9DFBF;
+                          border-radius:6px; padding:.25rem .3rem; font-size:.875rem;
+                          font-weight:700; color:#27AE60;
+                          background:{% if is_delivered %}#F4F1F8{% else %}#fff{% end %};">
+          </td>
+          <td style="text-align:center;" id="stat_{{ item['id'] }}">
+            {% if not item['packed'] %}
+            <span class="istat" style="background:#FEF6E4; color:#A04000;">⏳ Pending</span>
+            {% elif is_partial %}
+            <span class="istat" style="background:#FEF0E6; color:#E67E22;">⚠️ Partial</span>
+            {% else %}
+            <span class="istat" style="background:#D5F5E3; color:#1E8449;">✅ Packed</span>
+            {% end %}
+          </td>
+          <td style="color:#7A6B8A; font-size:.82rem;">{{ item['note'] or '' }}</td>
+        </tr>
+        {% end %}
+        </tbody>
+      </table>
+    </div>
+    {% end %}
+  {% end %}
+
+  <!-- 🧺 Towels — reference only (not packable) -->
+  {% set towel_items = [i for i in items if i['category'] == 'Handoeke'] %}
+  {% if towel_items %}
+  <div class="card" style="margin-bottom:1rem; padding:1.1rem 1.5rem;
+                            border-left:4px solid #C39BD3;">
+    <h3 style="color:#7B3FA0; margin:0 0 .6rem; font-size:.95rem;">
+      🧺 Towels for this order
+    </h3>
+    <p style="font-size:.8rem; color:#9B8CAE; margin-bottom:.75rem;">
+      Reference — delivered/collected separately by the salon.
+    </p>
+    <div style="display:flex; flex-wrap:wrap; gap:.5rem;">
+      {% for item in towel_items %}
+      <span style="background:#EAE2F4; color:#3D1F5C; border-radius:8px;
+                   padding:.3rem .8rem; font-size:.9rem; font-weight:700;
+                   border:1px solid #D5C8E8;">
+        {{ item['product_name'] }}
+        <span style="color:#7B3FA0; margin-left:.3rem;">
+          × {{ int(item['quantity']) if item['quantity'] == int(item['quantity']) else item['quantity'] }}
+        </span>
+        {% if item.get('note') %}
+        <span style="font-size:.75rem; color:#9B8CAE; font-weight:400; margin-left:.3rem;">
+          — {{ item['note'] }}
+        </span>
+        {% end %}
+      </span>
+      {% end %}
+    </div>
+  </div>
+  {% end %}
+
+  {% if not is_delivered %}
+  <!-- Save button inside packForm -->
+  <div style="display:flex; justify-content:flex-end; margin-top:1rem;">
+    <button type="submit" class="btn btn-primary btn-lg"
+            style="background:#27AE60; border-color:#27AE60;">
+      💾 Save Pack Status
+    </button>
+  </div>
+  {% end %}
+
+{% if not is_delivered %}
+</form>
+{% end %}
+
+<!-- Navigation — OUTSIDE packForm -->
+<div style="display:flex; gap:.75rem; align-items:center; flex-wrap:wrap; margin-top:.75rem;">
+  <a href="/ho/week/{{ order['pack_date'] }}" class="btn btn-secondary btn-lg">
+    ← Back to Week
+  </a>
+  {% if order['status'] == 'submitted' %}
+  <form method="POST" action="/salon/order/{{ order['id'] }}/revert" style="margin:0;"
+        onsubmit="return confirm('Open this order for editing? It will be reverted to draft.')">
+    <button type="submit" class="btn btn-ghost"
+            style="border-color:#7B3FA0; color:#7B3FA0; font-size:.95rem; padding:.55rem 1.1rem;">
+      ✏️ Edit Order
+    </button>
+  </form>
+  {% end %}
+</div>
+
+{% end %}
+{% block scripts %}
+<style>
+.istat {
+  font-size: .7rem; font-weight: 700;
+  border-radius: 99px; padding: .15rem .5rem;
+  white-space: nowrap; display: inline-block;
+}
+</style>
+{% if not is_delivered %}
+<script>
+// ── Status config ──────────────────────────────────────────
+var STATUS_CFG = {
+  pending: { bg:'#FEF6E4', col:'#A04000', label:'⏳ Pending', rowBg:'#FEF6E4' },
+  partial: { bg:'#FEF0E6', col:'#E67E22', label:'⚠️ Partial', rowBg:'#FEF0E6' },
+  packed:  { bg:'#D5F5E3', col:'#1E8449', label:'✅ Packed',  rowBg:'#EAFAF1' }
+};
+
+function getItemStatus(itemId) {
+  var chk  = document.getElementById('chk_'  + itemId);
+  var pqty = document.getElementById('pqty_' + itemId);
+  if (!chk || !chk.checked) return 'pending';
+  if (pqty) {
+    var ordered = parseFloat(pqty.getAttribute('data-ordered') || 0);
+    var current = parseFloat(pqty.value) || 0;
+    if (current > 0 && current < ordered) return 'partial';
+  }
+  return 'packed';
+}
+
+function applyItemStatus(itemId, status) {
+  var row    = document.getElementById('irow-' + itemId);
+  var lbl    = document.querySelector('#irow-' + itemId + ' label');
+  var statEl = document.getElementById('stat_' + itemId);
+  var c = STATUS_CFG[status] || STATUS_CFG.pending;
+  if (row)    row.style.background = c.rowBg;
+  if (lbl)  { lbl.style.textDecoration = status === 'packed' || status === 'partial' ? 'line-through' : '';
+               lbl.style.color         = status === 'packed' || status === 'partial' ? '#999' : ''; }
+  if (statEl) statEl.innerHTML =
+    '<span class="istat" style="background:' + c.bg + '; color:' + c.col + ';">' + c.label + '</span>';
+}
+
+function toggleItemRow(itemId, checked) {
+  applyItemStatus(itemId, getItemStatus(itemId));
+  updateProgress();
+}
+
+function selectCat(cat, checked) {
+  document.querySelectorAll('#cat-' + cat + ' input[type=checkbox]').forEach(function(cb) {
+    var id = cb.name.replace('pack_', '');
+    cb.checked = checked;
+    toggleItemRow(id, checked);
+  });
+}
+
+function updateProgress() {
+  var all  = document.querySelectorAll('#packForm input[type=checkbox]');
+  var done = document.querySelectorAll('#packForm input[type=checkbox]:checked');
+  var pct  = all.length ? Math.round(done.length * 100 / all.length) : 0;
+  var bar  = document.getElementById('progressBar');
+  var lbl  = document.getElementById('progressLabel');
+  if (bar) { bar.style.width = pct + '%'; bar.style.background = pct === 100 ? '#27AE60' : '#7B3FA0'; }
+  if (lbl) lbl.textContent = done.length + ' / ' + all.length + ' items packed';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('[name^="pqty_"]').forEach(function(inp) {
+    inp.addEventListener('input', function() {
+      applyItemStatus(inp.name.replace('pqty_', ''), getItemStatus(inp.name.replace('pqty_', '')));
+    });
+  });
+});
+</script>
+{% end %}
+{% end %}

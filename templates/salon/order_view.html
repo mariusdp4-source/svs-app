@@ -1,0 +1,283 @@
+{% extends "../base.html" %}
+{% block title %}Order {{ order['id'] }}{% end %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h2>Order #{{ order['id'] }} – {{ salon['code'] }}</h2>
+    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.15rem;">{{ salon['name'] }}</p>
+  </div>
+  <span class="badge badge-{{ order['status'] }}" style="font-size:.85rem; padding:.35rem .9rem;">
+    {% if order['status'] == 'submitted' %}⏳ Submitted
+    {% elif order['status'] == 'packed' %}📦 Submitted & Packed
+    {% elif order['status'] == 'delivered' %}✅ Delivered
+    {% else %}{{ order['status'] }}{% end %}
+  </span>
+</div>
+
+<!-- Order info bar -->
+<div class="card" style="margin-bottom:1rem; padding:.9rem 1.4rem;">
+  <div style="display:flex; gap:2.5rem; flex-wrap:wrap;">
+    <div>
+      <span style="font-size:.75rem; color:#7A6B8A; text-transform:uppercase; letter-spacing:.04em;">Pack Date</span>
+      <div style="font-weight:700; color:#3D1F5C; margin-top:.1rem;">{{ order['pack_date'] }}</div>
+    </div>
+    <div>
+      <span style="font-size:.75rem; color:#7A6B8A; text-transform:uppercase; letter-spacing:.04em;">Submitted</span>
+      <div style="font-weight:600; color:#2C1A3E; margin-top:.1rem;">{{ order['submitted_at'] or '–' }}</div>
+    </div>
+    {% if order['status'] == 'delivered' %}
+    <div>
+      <span style="font-size:.75rem; color:#7A6B8A; text-transform:uppercase; letter-spacing:.04em;">Delivered</span>
+      <div style="font-weight:600; color:#1E8449; margin-top:.1rem;">{{ order['delivered_at'] or '–' }}</div>
+    </div>
+    {% if order['signed_by'] %}
+    <div>
+      <span style="font-size:.75rem; color:#7A6B8A; text-transform:uppercase; letter-spacing:.04em;">Signed by</span>
+      <div style="font-weight:600; color:#2C1A3E; margin-top:.1rem;">{{ order['signed_by'] }}</div>
+    </div>
+    {% end %}
+    {% end %}
+    {% if order['notes'] %}
+    <div>
+      <span style="font-size:.75rem; color:#7A6B8A; text-transform:uppercase; letter-spacing:.04em;">Notes</span>
+      <div style="font-weight:600; color:#2C1A3E; margin-top:.1rem;">{{ order['notes'] }}</div>
+    </div>
+    {% end %}
+  </div>
+</div>
+
+{% if order['status'] == 'delivered' %}
+  <!-- ── Delivery summary ── -->
+  {% set total_items = len(items) %}
+  {% set full_delivered  = len([i for i in items if i.get('delivered_qty', 0) >= i['quantity']]) %}
+  {% set partial_items   = [i for i in items if 0 < i.get('delivered_qty', 0) < i['quantity']] %}
+  {% set missing_items   = [i for i in items if not i.get('delivered_qty', 0)] %}
+  {% set outstanding_cnt = len(partial_items) + len(missing_items) %}
+
+  <div class="card" style="margin-bottom:1.25rem; padding:1rem 1.4rem;
+       border-left:4px solid {% if outstanding_cnt == 0 %}#27AE60{% else %}#E67E22{% end %};">
+    <div style="display:flex; gap:1.5rem; flex-wrap:wrap; align-items:center;">
+      <div style="text-align:center;">
+        <div style="font-size:1.6rem; font-weight:800; color:#27AE60; line-height:1;">{{ full_delivered }}</div>
+        <div style="font-size:.72rem; color:#7A6B8A; margin-top:.1rem;">fully delivered</div>
+      </div>
+      {% if outstanding_cnt > 0 %}
+      <div style="text-align:center;">
+        <div style="font-size:1.6rem; font-weight:800; color:#E67E22; line-height:1;">{{ outstanding_cnt }}</div>
+        <div style="font-size:.72rem; color:#7A6B8A; margin-top:.1rem;">outstanding</div>
+      </div>
+      {% end %}
+      <div style="text-align:center;">
+        <div style="font-size:1.6rem; font-weight:800; color:#7B3FA0; line-height:1;">{{ total_items }}</div>
+        <div style="font-size:.72rem; color:#7A6B8A; margin-top:.1rem;">items total</div>
+      </div>
+      {% if outstanding_cnt == 0 %}
+      <div style="margin-left:auto; font-size:1rem; font-weight:700; color:#27AE60;">
+        ✅ Everything fully delivered!
+      </div>
+      {% else %}
+      <div style="margin-left:auto; font-size:.85rem; color:#E67E22; font-weight:600;">
+        ⚠️ Outstanding items will be carried forward to the next order
+      </div>
+      {% end %}
+    </div>
+  </div>
+
+  <!-- Items per category — with delivery column -->
+  {% for cat in ['Salon','Cleaning','Perms','Tints','Retail'] %}
+    {% set cat_items = [i for i in items if i['category'] == cat] %}
+    {% if cat_items %}
+    <div class="card" style="margin-bottom:1rem; padding:1.25rem 1.5rem;">
+      <h3 style="margin-bottom:.75rem; color:#3D1F5C;">{{ cat }}</h3>
+      <table class="table" style="table-layout:fixed; width:100%;">
+        <colgroup>
+          <col style="width:40%">
+          <col style="width:13%">
+          <col style="width:13%">
+          <col style="width:13%">
+          <col style="width:21%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th style="text-align:right;">Ordered</th>
+            <th style="text-align:right; color:#27AE60;">Delivered</th>
+            <th style="text-align:right; color:#C0392B;">Outstanding</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for item in cat_items %}
+        {% set del_qty = item.get('delivered_qty') or 0 %}
+        {% set out_qty = item['quantity'] - del_qty %}
+        <tr style="{% if out_qty > 0 %}background:#FEF9E7;{% elif del_qty >= item['quantity'] %}opacity:.75;{% end %}">
+          <td style="font-weight:600; color:{% if out_qty > 0 %}#A04000{% else %}#2C1A3E{% end %};">
+            {{ item['product_name'] }}
+            {% if out_qty >= item['quantity'] and item['quantity'] > 0 %}
+            <span style="font-size:.7rem; background:#E74C3C; color:#fff;
+                         padding:.1rem .35rem; border-radius:99px; margin-left:.3rem;">Not delivered</span>
+            {% elif out_qty > 0 %}
+            <span style="font-size:.7rem; background:#E67E22; color:#fff;
+                         padding:.1rem .35rem; border-radius:99px; margin-left:.3rem;">Partial</span>
+            {% end %}
+          </td>
+          <td style="text-align:right; font-weight:700; color:#7B3FA0;">
+            {{ int(item['quantity']) if item['quantity'] == int(item['quantity']) else item['quantity'] }}
+          </td>
+          <td style="text-align:right; font-weight:700; color:#27AE60;">
+            {{ int(del_qty) if del_qty == int(del_qty) else del_qty }}
+          </td>
+          <td style="text-align:right; font-weight:800; color:{% if out_qty > 0 %}#C0392B{% else %}#27AE60{% end %};">
+            {{ int(out_qty) if out_qty == int(out_qty) else out_qty }}
+          </td>
+          <td style="color:#7A6B8A; font-size:.82rem;">
+            {{ item.get('delivery_note') or item['note'] or '–' }}
+          </td>
+        </tr>
+        {% end %}
+        </tbody>
+      </table>
+    </div>
+    {% end %}
+  {% end %}
+
+{% else %}
+  <!-- ── Normal view (not delivered) ── -->
+  {% for cat in ['Salon','Cleaning','Perms','Tints','Retail'] %}
+    {% set cat_items = [i for i in items if i['category'] == cat] %}
+    {% if cat_items %}
+    <div class="card" style="margin-bottom:1rem; padding:1.25rem 1.5rem;">
+      <h3 style="margin-bottom:.75rem; color:#3D1F5C;">{{ cat }}</h3>
+      <table class="table" style="table-layout:fixed; width:100%;">
+        <colgroup>
+          <col style="width:60%">
+          <col style="width:15%">
+          <col style="width:25%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th style="text-align:right;">Quantity</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for item in cat_items %}
+        <tr>
+          <td style="font-weight:600;">
+            {{ item['product_name'] }}
+            {% if item.get('is_custom') and item['category'] != 'Tints' %}
+            <span style="font-size:.68rem; background:#F39C12; color:#fff;
+                         padding:.1rem .35rem; border-radius:99px; margin-left:.3rem;">✱ Once-off</span>
+            {% end %}
+          </td>
+          <td style="text-align:right; font-weight:700; color:#7B3FA0;">
+            {{ int(item['quantity']) if item['quantity'] == int(item['quantity']) else item['quantity'] }}
+          </td>
+          <td style="color:#7A6B8A;">{{ item['note'] or '–' }}</td>
+        </tr>
+        {% end %}
+        </tbody>
+      </table>
+    </div>
+    {% end %}
+  {% end %}
+{% end %}
+
+<!-- ── Towels ── (always visible) -->
+<div class="card" style="margin-bottom:1rem; padding:1.25rem 1.5rem; border:2px solid #9B59B6;">
+  <h3 style="color:#3D1F5C; margin-bottom:.85rem;">🧺 Towels</h3>
+
+  {% if order['status'] == 'delivered' and towel_logs_data %}
+  <!-- Actual delivery data -->
+  <table class="table" style="table-layout:fixed; width:100%; max-width:600px;">
+    <colgroup>
+      <col style="width:35%">
+      <col style="width:32%">
+      <col style="width:33%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th style="text-align:center;">🚚 Delivered (clean)</th>
+        <th style="text-align:center;">🧺 Collected (dirty)</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for t in towel_logs_data %}
+    <tr>
+      <td style="font-weight:600; color:#3D1F5C;">{{ t['towel_type'] }}</td>
+      <td style="text-align:center; font-weight:700; color:#7B3FA0;">
+        {{ int(t['sent']) if t['sent'] == int(t['sent']) else t['sent'] }}
+      </td>
+      <td style="text-align:center; font-weight:700; color:#27AE60;">
+        {{ int(t['collected']) if t['collected'] == int(t['collected']) else t['collected'] }}
+      </td>
+    </tr>
+    {% end %}
+    </tbody>
+  </table>
+
+  {% elif towel_items %}
+  <!-- Ordered towels (before delivery) -->
+  {% set nonzero_towels = [t for t in towel_items if t['quantity'] > 0] %}
+  {% if nonzero_towels %}
+  <table class="table" style="table-layout:fixed; width:100%; max-width:550px;">
+    <colgroup>
+      <col style="width:40%">
+      <col style="width:15%">
+      <col style="width:45%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th style="text-align:center;">Needed</th>
+        <th>Note</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for t in towel_items %}
+    {% if t['quantity'] > 0 %}
+    <tr>
+      <td style="font-weight:600; color:#3D1F5C;">{{ t['product_name'] }}</td>
+      <td style="text-align:center; font-weight:700; color:#7B3FA0;">
+        {{ int(t['quantity']) if t['quantity'] == int(t['quantity']) else t['quantity'] }}
+      </td>
+      <td style="color:#7A6B8A; font-size:.82rem;">{{ t['note'] or '' }}</td>
+    </tr>
+    {% end %}
+    {% end %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:#7A6B8A; font-size:.875rem; margin:0;">No towels ordered for this order.</p>
+  {% end %}
+
+  {% else %}
+  <p style="color:#7A6B8A; font-size:.875rem; margin:0;">No towels ordered for this order.</p>
+  {% end %}
+
+</div>
+
+<div style="margin-top:1.25rem; display:flex; gap:.75rem; align-items:center; flex-wrap:wrap;">
+  <a href="/salon/dashboard" class="btn btn-secondary">← Back to Dashboard</a>
+
+  {% if order['status'] == 'submitted' %}
+  <!-- Not yet packed — can still change -->
+  <form method="POST" action="/salon/order/{{ order['id'] }}/revert" style="margin:0;"
+        onsubmit="return confirm('Revert this order to draft so it can be edited?')">
+    <button type="submit" class="btn btn-ghost"
+            style="border-color:#7B3FA0; color:#7B3FA0;">
+      ✏️ Edit Order
+    </button>
+  </form>
+  {% elif order['status'] == 'packed' %}
+  <!-- HO has already packed — read only -->
+  <span style="font-size:.82rem; color:#7A6B8A; padding:.3rem .75rem;
+               background:#F3F0F8; border-radius:8px; border:1px solid #D5C8E8;">
+    🔒 Order is already packed — cannot be changed
+  </span>
+  {% end %}
+</div>
+{% end %}

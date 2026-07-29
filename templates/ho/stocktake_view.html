@@ -1,0 +1,93 @@
+{% extends "../base.html" %}
+{% block title %}Stock Take {{ take['taken_at'] }}{% end %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h2>📦 Stock Take – {{ take['taken_at'] }}</h2>
+    {% if take['taken_by'] %}
+    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem">
+      Taken by: <strong>{{ take['taken_by'] }}</strong>
+      {% if take['notes'] %} &nbsp;|&nbsp; {{ take['notes'] }}{% end %}
+    </p>
+    {% end %}
+  </div>
+  <div style="display:flex; gap:.6rem; flex-wrap:wrap; align-items:center;">
+    <a href="/ho/stocktake/{{ take['id'] }}/xlsx" class="btn btn-secondary">
+      ↓ Excel
+    </a>
+    <a href="/ho/stocktake/{{ take['id'] }}/pdf" class="btn btn-secondary">
+      ↓ PDF
+    </a>
+    <a href="/ho/stocktake" class="btn btn-ghost">← Back to List</a>
+  </div>
+</div>
+
+{% if not by_cat %}
+<div class="card" style="text-align:center; padding:2.5rem; color:#9B8CAE;">
+  <p style="font-size:1.05rem;">No items with quantity &gt; 0 were saved.</p>
+  <a href="/ho/stocktake/new" class="btn btn-primary" style="margin-top:1rem;">+ New Stock Take</a>
+</div>
+{% else %}
+
+{% set total_items = sum(len(v) for v in by_cat.values()) %}
+
+<!-- Summary strip -->
+<div style="display:flex; gap:1.5rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+  <div class="card" style="flex:0 0 auto; padding:.75rem 1.25rem; min-width:120px; text-align:center;">
+    <div style="font-size:1.6rem; font-weight:700; color:#3D1F5C;">{{ total_items }}</div>
+    <div style="font-size:.8rem; color:#7A6B8A; margin-top:.15rem;">Products Counted</div>
+  </div>
+  {% for cat in categories %}
+  {% if by_cat.get(cat) %}
+  <div class="card" style="flex:0 0 auto; padding:.75rem 1.25rem; min-width:120px; text-align:center;">
+    <div style="font-size:1.3rem; font-weight:700; color:#7B3FA0;">{{ len(by_cat[cat]) }}</div>
+    <div style="font-size:.8rem; color:#7A6B8A; margin-top:.15rem;">{{ cat }}</div>
+  </div>
+  {% end %}
+  {% end %}
+</div>
+
+{% for cat in categories %}
+{% if by_cat.get(cat) %}
+<div class="card" style="margin-bottom:1.25rem;">
+  <h3 style="color:#3D1F5C; margin-bottom:.9rem; padding-bottom:.5rem;
+              border-bottom:2px solid #E8E0F0;">
+    {{ cat }}
+    <span style="background:#EAE2F4; color:#7B3FA0; border-radius:10px;
+                 padding:.1rem .55rem; font-size:.8rem; font-weight:600;
+                 margin-left:.5rem;">{{ len(by_cat[cat]) }}</span>
+  </h3>
+  <table class="table" style="table-layout:fixed; width:100%;">
+    <colgroup>
+      <col style="width:78%">
+      <col style="width:22%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th style="text-align:center;">Quantity</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for idx, item in enumerate(by_cat[cat]) %}
+    <tr style="{% if idx % 2 == 1 %}background:#F9F6FD;{% end %}">
+      <td style="font-weight:500; color:#2C1A3E;">{{ item['product_name'] }}</td>
+      <td style="text-align:center;">
+        {% set qty = item['quantity'] %}
+        {% set qty_disp = int(qty) if qty == int(qty) else qty %}
+        <span style="background:#EAE2F4; color:#3D1F5C; border-radius:8px;
+                     padding:.2rem .65rem; font-weight:700; font-size:1rem;
+                     display:inline-block; min-width:38px;">
+          {{ qty_disp }}
+        </span>
+      </td>
+    </tr>
+    {% end %}
+    </tbody>
+  </table>
+</div>
+{% end %}
+{% end %}
+
+{% end %}

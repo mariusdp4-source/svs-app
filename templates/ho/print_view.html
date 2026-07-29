@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SVS – {{ title }} – {{ pack_date }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 11pt;
+    color: #1a1a2e;
+    background: #fff;
+    padding: 1.5cm 1.8cm;
+  }
+
+  /* ── Header ── */
+  .print-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 3px solid #3D1F5C;
+    padding-bottom: .6rem;
+    margin-bottom: 1.2rem;
+  }
+  .print-header h1 {
+    font-size: 18pt;
+    color: #3D1F5C;
+    font-weight: 800;
+    letter-spacing: -.02em;
+  }
+  .print-header .sub {
+    font-size: 9pt;
+    color: #7A6B8A;
+    margin-top: .15rem;
+  }
+  .print-header .meta {
+    text-align: right;
+    font-size: 9pt;
+    color: #555;
+  }
+  .print-header .meta strong { color: #3D1F5C; }
+
+  /* ── Salon chips ── */
+  .salon-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin-bottom: 1.2rem;
+  }
+  .salon-chip {
+    padding: .2rem .65rem;
+    border-radius: 99px;
+    font-size: 8pt;
+    font-weight: 700;
+    border: 1.5px solid #D5C8E8;
+    color: #3D1F5C;
+  }
+  .salon-chip.packed { background: #D5F5E3; border-color: #A9DFBF; color: #1E8449; }
+  .salon-chip.submitted { background: #FDEBD0; border-color: #FAD7A0; color: #A04000; }
+
+  /* ── Category + table ── */
+  .cat-section { margin-bottom: 1rem; break-inside: avoid; }
+
+  .cat-title {
+    background: #3D1F5C;
+    color: #fff;
+    padding: .28rem .7rem;
+    font-size: 9pt;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    border-radius: 4px 4px 0 0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+  }
+  thead tr {
+    background: #EDE0F8;
+  }
+  thead th {
+    padding: .3rem .55rem;
+    font-size: 8pt;
+    font-weight: 700;
+    color: #3D1F5C;
+    text-align: left;
+    border-bottom: 1.5px solid #D5C8E8;
+  }
+  thead th.right { text-align: right; }
+  thead th.center { text-align: center; }
+
+  tbody tr:nth-child(even) { background: #F8F3FD; }
+  tbody tr:nth-child(odd)  { background: #fff; }
+
+  {% if view == 'outstanding' %}
+  tbody tr { background: #FFFBF0; }
+  tbody tr:nth-child(even) { background: #FEF9E7; }
+  {% end %}
+
+  tbody td {
+    padding: .32rem .55rem;
+    border-bottom: 1px solid #EDE0F8;
+    vertical-align: middle;
+  }
+  td.cb     { text-align: center; font-size: 13pt; width: 26px; color: #999; }
+  td.name   { font-weight: 600; color: #2C1A3E; }
+  td.qty    { text-align: center; font-weight: 800; color: #7B3FA0; font-size: 11pt; width: 52px; }
+  td.salons { font-size: 8pt; width: 38%; }
+
+  .salon-tag {
+    display: inline-block;
+    padding: .08rem .35rem;
+    border-radius: 3px;
+    font-weight: 700;
+    font-size: 7.5pt;
+    margin: .1rem .15rem .1rem 0;
+  }
+  .salon-tag.packed-tag     { background: #D5F5E3; color: #1E8449; }
+  .salon-tag.unpacked-tag   { background: #FDEBD0; color: #A04000; }
+  .salon-tag.unpacked-only  { background: #FADBD8; color: #C0392B; font-weight: 800; }
+
+  /* ── Footer ── */
+  .print-footer {
+    margin-top: 1.5rem;
+    padding-top: .6rem;
+    border-top: 1px solid #D5C8E8;
+    font-size: 8pt;
+    color: #999;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* ── Summary row ── */
+  .summary-bar {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1.2rem;
+    font-size: 9pt;
+  }
+  .summary-bar .num {
+    font-size: 18pt;
+    font-weight: 800;
+    color: #7B3FA0;
+    line-height: 1;
+  }
+  .summary-bar .label { color: #7A6B8A; font-size: 7.5pt; margin-top: .15rem; }
+
+  {% if view == 'outstanding' %}
+  .summary-bar .num { color: #C0392B; }
+  .cat-title { background: #C0392B; }
+  .print-header { border-color: #C0392B; }
+  .print-header h1 { color: #C0392B; }
+  {% end %}
+
+  /* ── Print-only: hide browser chrome ── */
+  @media print {
+    body { padding: 0; }
+    .no-print { display: none !important; }
+    @page { margin: 1.2cm 1.5cm; }
+    .cat-section { break-inside: avoid; }
+  }
+  @media screen {
+    body { max-width: 960px; margin: 0 auto; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Print buttons (screen only) -->
+<div class="no-print" style="
+  position: fixed; top: 1rem; right: 1rem;
+  display: flex; gap: .5rem; z-index: 100;">
+  <a href="/ho/week/{{ pack_date }}"
+     style="text-decoration:none; padding:.45rem 1rem; border-radius:8px;
+            border:1.5px solid #D5C8E8; font-size:.85rem; color:#3D1F5C;
+            background:#fff; font-family:sans-serif; cursor:pointer;">
+    ← Back
+  </a>
+  <button onclick="window.print()"
+          style="padding:.45rem 1.1rem; border-radius:8px; border:none;
+                 background:#7B3FA0; color:#fff; font-size:.85rem;
+                 font-family:sans-serif; cursor:pointer; font-weight:600;">
+    🖨️ Print
+  </button>
+</div>
+
+<!-- Header -->
+<div class="print-header">
+  <div>
+    <h1>SVS Stock &nbsp;·&nbsp; {{ title }}</h1>
+    <div class="sub">Silver Violet Studios – Packing List</div>
+  </div>
+  <div class="meta">
+    <strong>Week:</strong> {{ pack_date }} → {{ week_friday }}<br>
+    <strong>Printed:</strong> <span id="printDate"></span><br>
+    {% if view == 'outstanding' %}
+    <strong style="color:#C0392B;">⚠ Items not yet packed</strong>
+    {% else %}
+    All orders for this week
+    {% end %}
+  </div>
+</div>
+
+<!-- Salon status chips -->
+<div class="salon-row">
+  {% for o in orders %}
+  <span class="salon-chip {% if o['status'] == 'packed' %}packed{% else %}submitted{% end %}">
+    {{ o['salon_code'] }}
+    {% if o['status'] == 'packed' %}✓{% else %}⏳{% end %}
+  </span>
+  {% end %}
+</div>
+
+<!-- Summary -->
+{% set cats_present = list(set(i['category'] for i in items)) %}
+{% set fully_packed = len([i for i in items if i['packed_qty'] >= i['total_qty'] and i['category'] != 'Handoeke']) %}
+
+<div class="summary-bar">
+  <div>
+    <div class="num">{{ len(items) }}</div>
+    <div class="label">products</div>
+  </div>
+  <div>
+    <div class="num">{{ len(orders) }}</div>
+    <div class="label">salons</div>
+  </div>
+  <div>
+    <div class="num">{{ len(cats_present) }}</div>
+    <div class="label">categories</div>
+  </div>
+  {% if view == 'all' %}
+  <div>
+    <div class="num" style="color:#27AE60;">{{ fully_packed }}</div>
+    <div class="label">fully packed</div>
+  </div>
+  {% end %}
+</div>
+
+<!-- Items per category -->
+{% for cat in ['Salon','Cleaning','Perms','Tints','Retail'] %}
+  {% set cat_items = [i for i in items if i['category'] == cat] %}
+  {% if cat_items %}
+  <div class="cat-section">
+    <div class="cat-title">{{ cat }}</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="center" style="width:26px;">☐</th>
+          <th>Product</th>
+          {% if view == 'all' %}
+          <th class="center" style="width:58px;">Ordered</th>
+          <th class="center" style="width:52px; color:#27AE60;">Packed</th>
+          <th class="center" style="width:64px; color:#C0392B;">Outstanding</th>
+          {% else %}
+          <th class="center" style="width:72px;">Outstanding</th>
+          {% end %}
+          <th>Per Salon</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in cat_items %}
+      {% set out_qty = item['total_qty'] - item['packed_qty'] %}
+      <tr>
+        <td class="cb">☐</td>
+        <td class="name">{{ item['product_name'] }}</td>
+        {% if view == 'all' %}
+        <td class="qty">
+          {{ int(item['total_qty']) if item['total_qty'] == int(item['total_qty']) else item['total_qty'] }}
+        </td>
+        <td style="text-align:center; font-weight:800; color:#27AE60; font-size:11pt; width:52px;">
+          {{ int(item['packed_qty']) if item['packed_qty'] == int(item['packed_qty']) else item['packed_qty'] }}
+        </td>
+        <td style="text-align:center; font-weight:800; color:{% if out_qty > 0 %}#C0392B{% else %}#27AE60{% end %}; font-size:11pt; width:64px;">
+          {{ int(out_qty) if out_qty == int(out_qty) else out_qty }}
+        </td>
+        {% else %}
+        <td class="qty" style="color:#C0392B;">
+          {{ int(out_qty) if out_qty == int(out_qty) else out_qty }}
+        </td>
+        {% end %}
+        <td class="salons">
+          {% for s in item['salons'] %}
+          {% set s_pq  = s.get('packed_qty', 0) %}
+          {% set s_out = s['qty'] - s_pq %}
+          {% if view == 'all' %}
+            {% if s_pq > 0 %}
+            <span class="salon-tag packed-tag">
+              {{ s['code'] }}:{{ int(s_pq) if s_pq == int(s_pq) else s_pq }} ✓
+            </span>
+            {% end %}
+            {% if s_out > 0 %}
+            <span class="salon-tag unpacked-tag">
+              {{ s['code'] }}:{{ int(s_out) if s_out == int(s_out) else s_out }}
+            </span>
+            {% end %}
+          {% elif s_out > 0 %}
+          <span class="salon-tag unpacked-only">
+            {{ s['code'] }}:{{ int(s_out) if s_out == int(s_out) else s_out }}
+          </span>
+          {% end %}
+          {% end %}
+        </td>
+      </tr>
+      {% end %}
+      </tbody>
+    </table>
+  </div>
+  {% end %}
+{% end %}
+
+{% if not items %}
+<div style="text-align:center; padding:3rem; color:#27AE60; font-size:14pt;">
+  ✅ All packed — no outstanding items!
+</div>
+{% end %}
+
+<!-- Footer -->
+<div class="print-footer">
+  <span>Silver Violet Studios – SVS Stock System</span>
+  <span>{{ pack_date }}</span>
+</div>
+
+<script>
+  document.getElementById('printDate').textContent =
+    new Date().toLocaleDateString('en-ZA', {day:'2-digit', month:'2-digit', year:'numeric',
+    hour:'2-digit', minute:'2-digit'});
+  if (window.location.hash === '#print') window.print();
+</script>
+</body>
+</html>

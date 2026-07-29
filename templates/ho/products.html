@@ -1,0 +1,480 @@
+{% extends "../base.html" %}
+{% block title %}Products{% end %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h2>Product Catalogue</h2>
+    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem">
+      Manage products — categories, suppliers and status
+    </p>
+  </div>
+  <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+    <form method="POST" action="/ho/products/cleanup" style="margin:0;"
+          onsubmit="return confirm('This will delete all duplicates and keep the entry that has supplier info. If none have a supplier, the oldest entry is kept. Continue?')">
+      <button type="submit" class="btn btn-ghost"
+              style="color:#E67E22; border-color:#F0B27A;">
+        🧹 Clean Up Duplicates
+      </button>
+    </form>
+    <button type="button" class="btn btn-primary" onclick="openAddModal()">
+      + Add Product
+    </button>
+  </div>
+</div>
+
+<!-- Search + filter -->
+<div style="display:flex; gap:1rem; align-items:center; margin-bottom:1rem; flex-wrap:wrap;">
+  <input type="text" class="search-input" placeholder="Search product or supplier..."
+         oninput="filterTable(this.value)"
+         style="flex:1; min-width:200px; max-width:360px;">
+  <div style="display:flex; gap:.4rem; flex-wrap:wrap;">
+    <button class="btn btn-sm btn-ghost filter-btn active" onclick="setFilter('', this)">All</button>
+    <button class="btn btn-sm btn-ghost filter-btn" onclick="setFilter('Salon', this)">Salon</button>
+    <button class="btn btn-sm btn-ghost filter-btn" onclick="setFilter('Cleaning', this)">Cleaning</button>
+    <button class="btn btn-sm btn-ghost filter-btn" onclick="setFilter('Perms', this)">Perms</button>
+    <button class="btn btn-sm btn-ghost filter-btn" onclick="setFilter('Tints', this)">Tints</button>
+    <button class="btn btn-sm btn-ghost filter-btn" onclick="setFilter('Retail', this)">Retail</button>
+  </div>
+</div>
+
+<div class="card" style="padding:0; overflow:hidden;">
+  <table class="table" id="prodTable" style="margin:0;">
+    <thead>
+      <tr>
+        <th style="width:34%">Name</th>
+        <th style="width:14%">Category</th>
+        <th style="width:22%">Supplier</th>
+        <th style="width:10%">Status</th>
+        <th style="width:20%; text-align:right;">Action</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for p in products %}
+    {% set sup = p.get('supplier', '') or '' %}
+    <tr data-search="{{ p['name'].lower() }} {{ sup.lower() }}"
+        data-cat="{{ p['category'] }}"
+        data-active="{{ p['active'] }}"
+        data-id="{{ p['id'] }}"
+        data-name="{{ p['name'] }}"
+        data-category="{{ p['category'] }}"
+        data-supplier="{{ sup }}"
+        {% if not p['active'] %}style="background:#FAF5F5;"{% end %}>
+      <td style="font-weight:{% if p['active'] %}600{% else %}400{% end %};
+                 color:{% if p['active'] %}#2C1A3E{% else %}#9E8FA8{% end %};">
+        {{ p['name'] }}
+      </td>
+      <td>
+        <span style="
+          {% if p['category'] == 'Salon' %}background:#EAE2F4; color:#3D1F5C;
+          {% elif p['category'] == 'Cleaning' %}background:#E8F5E9; color:#2E7D32;
+          {% elif p['category'] == 'Perms' %}background:#FFF3E0; color:#E65100;
+          {% elif p['category'] == 'Retail' %}background:#E3F2FD; color:#1565C0;
+          {% elif p['category'] == 'Tints' %}background:#FCE4EC; color:#880E4F;
+          {% else %}background:#F5F5F5; color:#555;
+          {% end %}
+          {% if not p['active'] %}opacity:.5;{% end %}
+          border-radius:8px; padding:.15rem .5rem; font-size:.82rem; font-weight:600;">
+          {{ p['category'] }}
+        </span>
+      </td>
+      <td style="color:{% if p['active'] %}#7A6B8A{% else %}#B0A8BC{% end %}; font-size:.88rem;">
+        {% if sup %}
+        <span style="background:#F8F4FF; border:1px solid #D5C8E8; border-radius:6px;
+                     padding:.1rem .45rem; font-size:.82rem;
+                     color:{% if p['active'] %}#7B3FA0{% else %}#B0A8BC{% end %};">
+          {{ sup }}
+        </span>
+        {% else %}
+        <span style="color:#C8BFD8; font-size:.82rem;">—</span>
+        {% end %}
+      </td>
+      <td>
+        {% if p['active'] %}
+        <span style="color:#27AE60; font-size:.82rem; font-weight:600;">● Active</span>
+        {% else %}
+        <span style="color:#C0392B; font-size:.82rem; font-weight:600;">● Inactive</span>
+        {% end %}
+      </td>
+      <td style="text-align:right;">
+        <div style="display:flex; gap:.4rem; justify-content:flex-end;">
+          <button type="button"
+                  onclick="openEditModalFromRow(this.closest('tr'))"
+                  style="background:none; border:1.5px solid #D5C8E8; color:#3D1F5C;
+                         border-radius:6px; padding:.22rem .65rem; font-size:.8rem; cursor:pointer;">
+            ✏️ Edit
+          </button>
+          {% if p['active'] %}
+          <form method="POST" action="/ho/products/{{ p['id'] }}/toggle" style="margin:0;"
+                onsubmit="return confirm('Deactivate {{ p['name'] }}?')">
+            <input type="hidden" name="action" value="deactivate">
+            <button type="submit"
+                    style="background:none; border:1.5px solid #F5B7B1; color:#C0392B;
+                           border-radius:6px; padding:.22rem .65rem; font-size:.8rem; cursor:pointer;">
+              Deactivate
+            </button>
+          </form>
+          {% else %}
+          <form method="POST" action="/ho/products/{{ p['id'] }}/toggle" style="margin:0;">
+            <input type="hidden" name="action" value="activate">
+            <button type="submit"
+                    style="background:none; border:1.5px solid #A9DFBF; color:#27AE60;
+                           border-radius:6px; padding:.22rem .65rem; font-size:.8rem; cursor:pointer;">
+              Activate
+            </button>
+          </form>
+          {% end %}
+          <form method="POST" action="/ho/products/{{ p['id'] }}/delete" style="margin:0;"
+                onsubmit="return confirm('Permanently delete \'{{ p['name'] }}\'? This cannot be undone.')">
+            <button type="submit"
+                    style="background:#FEF0EF; border:1.5px solid #E74C3C; color:#C0392B;
+                           border-radius:6px; padding:.22rem .65rem; font-size:.8rem;
+                           cursor:pointer; font-weight:700;"
+                    title="Delete this product permanently">
+              🗑️ Delete
+            </button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% end %}
+    </tbody>
+  </table>
+</div>
+
+<p style="font-size:.8rem; color:#AAA; margin-top:.75rem; text-align:right;">
+  {{ len(products) }} active products
+  · {{ len(inactive_products) }} inactive
+</p>
+
+<!-- ── Inactive Products (collapsible) ── -->
+{% if inactive_products %}
+<div style="margin-top:1.5rem;">
+  <button type="button" onclick="toggleInactive()"
+          style="background:none; border:1.5px solid #F5B7B1; color:#C0392B;
+                 border-radius:8px; padding:.4rem 1rem; font-size:.85rem;
+                 cursor:pointer; font-weight:600; display:flex; align-items:center; gap:.4rem;">
+    <span id="inactiveArrow">▶</span>
+    🚫 Inactive Products ({{ len(inactive_products) }})
+  </button>
+  <div id="inactiveSection" style="display:none; margin-top:.75rem;">
+    <div class="card" style="padding:0; overflow:hidden; border:1.5px solid #F5B7B1;">
+      <table class="table" id="inactiveTable" style="margin:0;">
+        <thead>
+          <tr style="background:#FDF2F2;">
+            <th style="width:40%">Name</th>
+            <th style="width:15%">Category</th>
+            <th style="width:25%">Supplier</th>
+            <th style="width:20%; text-align:right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for p in inactive_products %}
+        {% set sup = p.get('supplier', '') or '' %}
+        <tr data-search-inactive="{{ p['name'].lower() }} {{ sup.lower() }}"
+            data-cat="{{ p['category'] }}"
+            data-id="{{ p['id'] }}"
+            data-name="{{ p['name'] }}"
+            data-category="{{ p['category'] }}"
+            data-supplier="{{ sup }}"
+            style="background:#FAF5F5; opacity:.85;">
+          <td style="font-weight:400; color:#9E8FA8;">{{ p['name'] }}</td>
+          <td>
+            <span style="
+              {% if p['category'] == 'Salon' %}background:#EAE2F4; color:#3D1F5C;
+              {% elif p['category'] == 'Cleaning' %}background:#E8F5E9; color:#2E7D32;
+              {% elif p['category'] == 'Perms' %}background:#FFF3E0; color:#E65100;
+              {% elif p['category'] == 'Retail' %}background:#E3F2FD; color:#1565C0;
+              {% elif p['category'] == 'Tints' %}background:#FCE4EC; color:#880E4F;
+              {% else %}background:#F5F5F5; color:#555;
+              {% end %}
+              opacity:.55; border-radius:8px; padding:.15rem .5rem; font-size:.82rem; font-weight:600;">
+              {{ p['category'] }}
+            </span>
+          </td>
+          <td style="color:#B0A8BC; font-size:.88rem;">
+            {% if sup %}
+            <span style="background:#F8F4FF; border:1px solid #D5C8E8; border-radius:6px;
+                         padding:.1rem .45rem; font-size:.82rem; color:#B0A8BC;">
+              {{ sup }}
+            </span>
+            {% else %}
+            <span style="color:#C8BFD8; font-size:.82rem;">—</span>
+            {% end %}
+          </td>
+          <td style="text-align:right;">
+            <div style="display:flex; gap:.4rem; justify-content:flex-end;">
+              <form method="POST" action="/ho/products/{{ p['id'] }}/toggle" style="margin:0;">
+                <input type="hidden" name="action" value="activate">
+                <button type="submit"
+                        style="background:none; border:1.5px solid #A9DFBF; color:#27AE60;
+                               border-radius:6px; padding:.22rem .65rem; font-size:.8rem; cursor:pointer;">
+                  ✓ Activate
+                </button>
+              </form>
+              <form method="POST" action="/ho/products/{{ p['id'] }}/delete" style="margin:0;"
+                    onsubmit="return confirm('Permanently delete \'{{ p['name'] }}\'? This cannot be undone.')">
+                <button type="submit"
+                        style="background:#FEF0EF; border:1.5px solid #E74C3C; color:#C0392B;
+                               border-radius:6px; padding:.22rem .65rem; font-size:.8rem;
+                               cursor:pointer; font-weight:700;">
+                  🗑️ Delete
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% end %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% end %}
+
+<!-- ─── Add Product Modal ─── -->
+<div id="addModal" class="svs-modal-backdrop">
+  <div class="svs-modal-box">
+    <button onclick="closeAddModal()" class="svs-modal-close">×</button>
+    <h3 style="color:#3D1F5C; margin-bottom:1.5rem;">+ Add New Product</h3>
+    <form method="POST" action="/ho/products">
+      <div class="form-group" style="margin-bottom:1.1rem;">
+        <label class="svs-label">Product Name <span style="color:#C0392B;">*</span></label>
+        <input type="text" name="name" id="addNameInput" required
+               placeholder="e.g. Extra Hold Gel 500ml"
+               class="svs-input">
+      </div>
+      <div class="form-group" style="margin-bottom:1.1rem;">
+        <label class="svs-label">Category <span style="color:#C0392B;">*</span></label>
+        <select name="category" id="addCatSelect" required class="svs-input"
+                style="cursor:pointer;" onchange="autoFillSupplier('add')">
+          <option value="Salon">Salon</option>
+          <option value="Cleaning">Cleaning</option>
+          <option value="Perms">Perms</option>
+          <option value="Tints">Tints</option>
+          <option value="Retail">Retail</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:1.75rem;">
+        <label class="svs-label">Supplier</label>
+        <input type="text" name="supplier" id="addSupplierInput"
+               placeholder="e.g. Silver Salon Products, SVS, HEDZ..."
+               class="svs-input">
+      </div>
+      <div style="display:flex; gap:.75rem; justify-content:flex-end;">
+        <button type="button" onclick="closeAddModal()" class="btn btn-secondary">Cancel</button>
+        <button type="submit" class="btn btn-primary">✓ Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ─── Edit Product Modal ─── -->
+<div id="editModal" class="svs-modal-backdrop">
+  <div class="svs-modal-box">
+    <button onclick="closeEditModal()" class="svs-modal-close">×</button>
+    <h3 style="color:#3D1F5C; margin-bottom:1.5rem;">✏️ Edit Product</h3>
+    <form method="POST" id="editProductForm" action="">
+      <div class="form-group" style="margin-bottom:1.1rem;">
+        <label class="svs-label">Product Name <span style="color:#C0392B;">*</span></label>
+        <input type="text" name="name" id="editNameInput" required class="svs-input">
+      </div>
+      <div class="form-group" style="margin-bottom:1.1rem;">
+        <label class="svs-label">Category <span style="color:#C0392B;">*</span></label>
+        <select name="category" id="editCatSelect" required class="svs-input" style="cursor:pointer;">
+          <option value="Salon">Salon</option>
+          <option value="Cleaning">Cleaning</option>
+          <option value="Perms">Perms</option>
+          <option value="Tints">Tints</option>
+          <option value="Retail">Retail</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:1.75rem;">
+        <label class="svs-label">Supplier</label>
+        <input type="text" name="supplier" id="editSupplierInput"
+               placeholder="e.g. Silver Salon Products, SVS, HEDZ..."
+               class="svs-input">
+      </div>
+      <div style="display:flex; gap:.75rem; justify-content:flex-end;">
+        <button type="button" onclick="closeEditModal()" class="btn btn-secondary">Cancel</button>
+        <button type="submit" class="btn btn-primary">✓ Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% end %}
+{% block scripts %}
+<script>
+/* ── Default suppliers per category ── */
+var CAT_SUPPLIERS = {
+  'Salon':    'Silver Salon Products',
+  'Cleaning': '',
+  'Perms':    'Silver Salon Products',
+  'Tints':    'HHB',
+  'Retail':   ''
+};
+
+function autoFillSupplier(prefix) {
+  var cat = document.getElementById(prefix + 'CatSelect').value;
+  var sup = document.getElementById(prefix + 'SupplierInput');
+  if (!sup.value || CAT_SUPPLIERS[cat]) {
+    sup.value = CAT_SUPPLIERS[cat] || '';
+  }
+}
+
+/* ── Filter & search ── */
+var _searchQ   = '';
+var _catFilter = '';
+
+function filterTable(q) {
+  _searchQ = q.toLowerCase();
+  applyFilters();
+}
+
+function setFilter(cat, btn) {
+  _catFilter = cat;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function applyFilters() {
+  // Filter main (active) table
+  document.querySelectorAll('#prodTable tbody tr').forEach(function(row) {
+    var matchSearch = !_searchQ || (row.dataset.search || '').includes(_searchQ);
+    var matchCat    = (_catFilter === '') ? true : (row.dataset.cat === _catFilter);
+    row.style.display = (matchSearch && matchCat) ? '' : 'none';
+  });
+  // Filter inactive table by same category; hide whole section if nothing matches
+  var inactiveBlock = document.getElementById('inactiveSection');
+  var inactiveBtn   = inactiveBlock ? inactiveBlock.previousElementSibling : null;
+  var visibleInactive = 0;
+  document.querySelectorAll('#inactiveTable tbody tr').forEach(function(row) {
+    var matchSearch = !_searchQ || (row.dataset.searchInactive || '').includes(_searchQ);
+    var matchCat    = (_catFilter === '') ? true : (row.dataset.cat === _catFilter);
+    var show = matchSearch && matchCat;
+    row.style.display = show ? '' : 'none';
+    if (show) visibleInactive++;
+  });
+  // Show/hide the inactive toggle button based on whether there are matches
+  if (inactiveBtn) inactiveBtn.style.display = visibleInactive > 0 ? '' : 'none';
+}
+
+function toggleInactive() {
+  var sec   = document.getElementById('inactiveSection');
+  var arrow = document.getElementById('inactiveArrow');
+  if (sec.style.display === 'none') {
+    sec.style.display = '';
+    arrow.textContent = '▼';
+  } else {
+    sec.style.display = 'none';
+    arrow.textContent = '▶';
+  }
+}
+
+applyFilters();
+
+/* ── Add Modal ── */
+function openAddModal() {
+  document.getElementById('addModal').style.display = 'flex';
+  autoFillSupplier('add');
+  setTimeout(function(){ document.getElementById('addNameInput').focus(); }, 50);
+}
+function closeAddModal() {
+  document.getElementById('addModal').style.display = 'none';
+  document.getElementById('addNameInput').value = '';
+  document.getElementById('addSupplierInput').value = '';
+}
+document.getElementById('addModal').addEventListener('click', function(e) {
+  if (e.target === this) closeAddModal();
+});
+
+/* ── Edit Modal ── */
+function openEditModalFromRow(row) {
+  var id       = row.dataset.id;
+  var name     = row.dataset.name;
+  var category = row.dataset.category;
+  var supplier = row.dataset.supplier || '';
+  document.getElementById('editProductForm').action = '/ho/products/' + id + '/edit';
+  document.getElementById('editNameInput').value     = name;
+  document.getElementById('editSupplierInput').value = supplier;
+  var sel = document.getElementById('editCatSelect');
+  for (var i = 0; i < sel.options.length; i++) {
+    sel.options[i].selected = (sel.options[i].value === category);
+  }
+  document.getElementById('editModal').style.display = 'flex';
+  setTimeout(function(){ document.getElementById('editNameInput').focus(); }, 50);
+}
+function closeEditModal() {
+  document.getElementById('editModal').style.display = 'none';
+}
+document.getElementById('editModal').addEventListener('click', function(e) {
+  if (e.target === this) closeEditModal();
+});
+
+/* Escape closes any open modal */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') { closeAddModal(); closeEditModal(); }
+});
+</script>
+<style>
+.filter-btn.active {
+  background: #7B3FA0 !important;
+  color: #fff !important;
+  border-color: #7B3FA0 !important;
+}
+.svs-modal-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(44,26,62,.45);
+  align-items: center;
+  justify-content: center;
+}
+.svs-modal-box {
+  background: #fff;
+  border-radius: 16px;
+  padding: 2rem 2.25rem;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 8px 40px rgba(44,26,62,.18);
+  margin: 1rem;
+  position: relative;
+}
+.svs-modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1.25rem;
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  color: #AAA;
+  line-height: 1;
+}
+.svs-modal-close:hover { color: #3D1F5C; }
+.svs-label {
+  font-weight: 600;
+  color: #3D1F5C;
+  display: block;
+  margin-bottom: .4rem;
+}
+.svs-input {
+  width: 100%;
+  border: 1.5px solid #D5C8E8;
+  border-radius: 8px;
+  padding: .55rem .75rem;
+  font-size: 1rem;
+  color: #2C1A3E;
+  background: #fff;
+  box-sizing: border-box;
+}
+.svs-input:focus {
+  outline: none;
+  border-color: #7B3FA0;
+  box-shadow: 0 0 0 3px rgba(123,63,160,.12);
+}
+</style>
+{% end %}

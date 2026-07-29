@@ -1,0 +1,379 @@
+{% extends "../base.html" %}
+{% block title %}Order from Supplier – {{ pack_date }}{% end %}
+{% block content %}
+
+<style>
+/* ── Outstanding page styles ── */
+.ord-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: .75rem;
+  margin-bottom: 1.5rem;
+}
+.ord-summary {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+.ord-stat {
+  background: #fff;
+  border: 1.5px solid #D5C8E8;
+  border-radius: 10px;
+  padding: .65rem 1.1rem;
+  min-width: 110px;
+  text-align: center;
+}
+.ord-stat .num {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #7B3FA0;
+  line-height: 1.1;
+}
+.ord-stat .lbl {
+  font-size: .72rem;
+  color: #7A6B8A;
+  margin-top: .1rem;
+}
+.ord-stat.done .num { color: #27AE60; }
+.ord-stat.warn .num { color: #C0392B; }
+
+.cat-block {
+  margin-bottom: 1.5rem;
+}
+.cat-head {
+  background: linear-gradient(90deg, #3D1F5C 0%, #5E2D8C 100%);
+  color: #fff;
+  padding: .35rem .9rem;
+  border-radius: 8px 8px 0 0;
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.ord-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1.5px solid #D5C8E8;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+  table-layout: fixed;
+}
+.ord-table th {
+  background: #EDE0F8;
+  padding: .4rem .7rem;
+  font-size: .76rem;
+  font-weight: 700;
+  color: #3D1F5C;
+  text-align: left;
+  border-bottom: 1.5px solid #D5C8E8;
+}
+.ord-table td {
+  padding: .45rem .7rem;
+  border-bottom: 1px solid #EDE0F8;
+  vertical-align: middle;
+}
+.ord-table tbody tr:last-child td { border-bottom: none; }
+.ord-table tbody tr:nth-child(even) { background: #FAF6FF; }
+.ord-table tbody tr.is-ordered { background: #F0FBF4; }
+.ord-table tbody tr.is-ordered td:first-child { border-left: 3px solid #27AE60; }
+
+.ord-check {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #27AE60;
+}
+.ord-qty {
+  width: 80px;
+  padding: .3rem .5rem;
+  border: 1.5px solid #D5C8E8;
+  border-radius: 6px;
+  font-size: .875rem;
+  font-weight: 700;
+  color: #2C1A3E;
+  text-align: center;
+}
+.ord-qty:focus { outline: none; border-color: #7B3FA0; box-shadow: 0 0 0 2px #E8D5F5; }
+.ord-notes {
+  width: 100%;
+  padding: .28rem .5rem;
+  border: 1.5px solid #D5C8E8;
+  border-radius: 6px;
+  font-size: .82rem;
+  color: #2C1A3E;
+}
+.ord-notes:focus { outline: none; border-color: #7B3FA0; }
+
+.badge-ordered {
+  display: inline-block;
+  padding: .18rem .6rem;
+  border-radius: 99px;
+  background: #D5F5E3;
+  color: #1E8449;
+  font-size: .72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.badge-pending {
+  display: inline-block;
+  padding: .18rem .6rem;
+  border-radius: 99px;
+  background: #FDEBD0;
+  color: #A04000;
+  font-size: .72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.save-bar {
+  position: sticky;
+  bottom: 0;
+  background: rgba(255,255,255,.95);
+  backdrop-filter: blur(6px);
+  border-top: 1.5px solid #D5C8E8;
+  padding: .85rem 1.5rem;
+  display: flex;
+  gap: .75rem;
+  align-items: center;
+  margin: 0 -1.5rem;
+  z-index: 50;
+}
+.save-bar .progress-wrap {
+  flex: 1;
+  background: #EDE0F8;
+  border-radius: 99px;
+  height: 8px;
+  overflow: hidden;
+}
+.save-bar .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #27AE60, #2ECC71);
+  border-radius: 99px;
+  transition: width .3s ease;
+}
+.save-bar .progress-text {
+  font-size: .8rem;
+  color: #7A6B8A;
+  white-space: nowrap;
+}
+
+/* ── Print styles ── */
+@media print {
+  .no-print { display: none !important; }
+  .save-bar  { display: none !important; }
+  .ord-check, .ord-qty, .ord-notes { display: none !important; }
+  .print-only { display: inline !important; }
+  .ord-table tbody tr { page-break-inside: avoid; }
+  .cat-block { break-inside: avoid; }
+  body { font-size: 10pt; }
+  .ord-table th, .ord-table td { padding: .3rem .5rem; }
+  @page { margin: 1.2cm 1.5cm; }
+}
+.print-only { display: none; }
+</style>
+
+<div class="ord-header">
+  <div>
+    <h2 style="color:#3D1F5C; margin-bottom:.2rem;">📋 Order from Supplier</h2>
+    <p style="color:#7A6B8A; font-size:.875rem;">
+      Pack Date: <strong>{{ pack_date }}</strong> ·
+      {{ len(outstanding) }} outstanding product{{ '' if len(outstanding) == 1 else 's' }}
+    </p>
+  </div>
+  <div style="display:flex; gap:.5rem; flex-wrap:wrap;" class="no-print">
+    <button onclick="window.print()" class="btn btn-ghost">🖨️ Print</button>
+    <a href="/ho/week/{{ pack_date }}" class="btn btn-secondary">← Back</a>
+  </div>
+</div>
+
+<!-- Summary stats -->
+{% set ordered_count = len([i for i in outstanding if i['ordered']]) %}
+{% set pending_count = len(outstanding) - ordered_count %}
+
+<div class="ord-summary">
+  <div class="ord-stat warn">
+    <div class="num">{{ pending_count }}</div>
+    <div class="lbl">still to order</div>
+  </div>
+  <div class="ord-stat done">
+    <div class="num">{{ ordered_count }}</div>
+    <div class="lbl">already ordered</div>
+  </div>
+  <div class="ord-stat">
+    <div class="num">{{ len(outstanding) }}</div>
+    <div class="lbl">products total</div>
+  </div>
+</div>
+
+{% if not outstanding %}
+<div class="card" style="padding:3rem; text-align:center;">
+  <div style="font-size:3rem; margin-bottom:.75rem;">✅</div>
+  <h3 style="color:#27AE60; margin-bottom:.4rem;">All packed!</h3>
+  <p class="text-muted">No outstanding items for this week.</p>
+  <a href="/ho/week/{{ pack_date }}" class="btn btn-secondary" style="margin-top:1rem;">
+    ← Back to Week View
+  </a>
+</div>
+{% else %}
+
+<form method="POST" action="/ho/week/{{ pack_date }}/outstanding" id="ordForm">
+
+{% for cat in ['Salon','Perms','Tints','Retail'] %}
+  {% set cat_items = [(i, item) for i, item in enumerate(outstanding) if item['category'] == cat] %}
+  {% if cat_items %}
+  <div class="cat-block">
+    <div class="cat-head">{{ cat }}</div>
+    <table class="ord-table">
+      <colgroup>
+        <col style="width:3.5%">   <!-- tick -->
+        <col style="width:30%">   <!-- product -->
+        <col style="width:10%">   <!-- needed -->
+        <col style="width:12%">   <!-- qty -->
+        <col style="width:30%">   <!-- notes -->
+        <col style="width:14.5%"> <!-- status -->
+      </colgroup>
+      <thead>
+        <tr>
+          <th style="text-align:center;">☑</th>
+          <th>Product</th>
+          <th style="text-align:center;">Needed</th>
+          <th style="text-align:center;">Quantity</th>
+          <th>Notes</th>
+          <th style="text-align:center;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for i, item in cat_items %}
+      <tr class="{% if item['ordered'] %}is-ordered{% end %}" id="row-{{ i }}">
+
+        <!-- Tick -->
+        <td style="text-align:center;">
+          <input type="checkbox"
+                 name="ord_{{ i }}"
+                 class="ord-check"
+                 value="on"
+                 {% if item['ordered'] %}checked{% end %}
+                 onchange="updateRow({{ i }}, this)">
+        </td>
+
+        <!-- Product name -->
+        <td>
+          <span style="font-weight:600; color:{% if item['ordered'] %}#27AE60{% else %}#C0392B{% end %};">
+            {{ item['product_name'] }}
+          </span>
+          <!-- print only: show qty_ordered -->
+          <span class="print-only" style="color:#555; font-size:9pt;">
+            {% if item['ordered'] %}
+              — Ordered: {{ int(item['qty_ordered']) if item['qty_ordered'] == int(item['qty_ordered']) else item['qty_ordered'] }}
+            {% end %}
+          </span>
+        </td>
+
+        <!-- Needed -->
+        <td style="text-align:center; font-weight:800; color:#C0392B; font-size:1rem;">
+          {{ int(item['qty_needed']) if item['qty_needed'] == int(item['qty_needed']) else item['qty_needed'] }}
+        </td>
+
+        <!-- Order quantity -->
+        <td style="text-align:center;">
+          <input type="number"
+                 name="qty_{{ i }}"
+                 class="ord-qty no-print"
+                 value="{{ int(item['qty_ordered']) if item['qty_ordered'] == int(item['qty_ordered']) else item['qty_ordered'] }}"
+                 min="0"
+                 step="1">
+        </td>
+
+        <!-- Notes -->
+        <td>
+          <input type="text"
+                 name="notes_{{ i }}"
+                 class="ord-notes no-print"
+                 placeholder="Optional note..."
+                 value="{{ item['notes'] }}">
+          <span class="print-only" style="color:#555; font-size:9pt;">{{ item['notes'] }}</span>
+        </td>
+
+        <!-- Status badge -->
+        <td style="text-align:center;" id="badge-{{ i }}">
+          {% if item['ordered'] %}
+          <span class="badge-ordered">✓ Ordered</span>
+          {% else %}
+          <span class="badge-pending">⏳ Outstanding</span>
+          {% end %}
+        </td>
+
+      </tr>
+      {% end %}
+      </tbody>
+    </table>
+  </div>
+  {% end %}
+{% end %}
+
+<!-- Sticky save bar -->
+<div class="save-bar no-print">
+  <div class="progress-wrap">
+    <div class="progress-fill" id="progressFill" style="width:0%"></div>
+  </div>
+  <span class="progress-text" id="progressText">0 / {{ len(outstanding) }} ordered</span>
+  <button type="button" onclick="markAll(true)"  class="btn btn-ghost"
+          style="font-size:.8rem; padding:.4rem .8rem;">✅ All</button>
+  <button type="button" onclick="markAll(false)" class="btn btn-ghost"
+          style="font-size:.8rem; padding:.4rem .8rem; color:#C0392B; border-color:#F5B7B1;">
+    ✗ Clear All
+  </button>
+  <button type="submit" class="btn btn-primary" style="padding:.5rem 1.4rem;">
+    💾 Save
+  </button>
+</div>
+
+</form>
+{% end %}
+
+{% end %}
+{% block scripts %}
+<script>
+const TOTAL = {{ len(outstanding) }};
+
+function updateRow(i, cb) {
+  const row   = document.getElementById('row-' + i);
+  const badge = document.getElementById('badge-' + i);
+  if (cb.checked) {
+    row.classList.add('is-ordered');
+    const nameEl = row.querySelector('td:nth-child(2) span');
+    if (nameEl) nameEl.style.color = '#27AE60';
+    badge.innerHTML = '<span class="badge-ordered">✓ Ordered</span>';
+  } else {
+    row.classList.remove('is-ordered');
+    const nameEl = row.querySelector('td:nth-child(2) span');
+    if (nameEl) nameEl.style.color = '#C0392B';
+    badge.innerHTML = '<span class="badge-pending">⏳ Outstanding</span>';
+  }
+  refreshProgress();
+}
+
+function refreshProgress() {
+  const checks = document.querySelectorAll('.ord-check');
+  const done   = Array.from(checks).filter(c => c.checked).length;
+  const pct    = TOTAL > 0 ? Math.round(done / TOTAL * 100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressText').textContent  = done + ' / ' + TOTAL + ' ordered';
+}
+
+function markAll(state) {
+  document.querySelectorAll('.ord-check').forEach((cb, i) => {
+    cb.checked = state;
+    updateRow(parseInt(cb.name.replace('ord_', '')), cb);
+  });
+}
+
+// Init on load
+refreshProgress();
+</script>
+{% end %}

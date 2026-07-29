@@ -1,0 +1,418 @@
+{% extends "../base.html" %}
+{% block title %}{% if ho_edit %}Edit Order{% else %}New Order{% end %}{% end %}
+{% block content %}
+<div class="page-header">
+  <h2>{% if ho_edit %}✏️ Edit Order – {{ ho_salon_name }}{% else %}New Order – {{ user['name'] }}{% end %}</h2>
+</div>
+
+{% if ho_edit %}
+<div style="background:#FEF3E2; border:1.5px solid #F0A030; border-radius:10px;
+            padding:.85rem 1.2rem; margin-bottom:1.25rem; display:flex; gap:.75rem; align-items:center;">
+  <span style="font-size:1.3rem; flex-shrink:0;">✏️</span>
+  <div>
+    <strong style="color:#7A4800;">HO Edit Mode</strong>
+    <span style="color:#A06020; font-size:.85rem; margin-left:.5rem;">
+      — changes will be resubmitted directly when you are done
+    </span>
+  </div>
+</div>
+{% end %}
+
+{% if carried_forward %}
+<div style="background:#FEF9E7; border:1.5px solid #F0C040; border-radius:10px;
+            padding:.85rem 1.2rem; margin-bottom:1.25rem; display:flex; gap:.75rem; align-items:flex-start;">
+  <span style="font-size:1.3rem; flex-shrink:0;">⚠️</span>
+  <div>
+    <strong style="color:#8B6914;">{{ len(carried_forward) }} items outstanding from previous order</strong>
+    <span style="color:#A08030; font-size:.85rem; margin-left:.5rem;">— pre-filled automatically</span>
+    <div style="margin-top:.35rem; font-size:.8rem; color:#A08030;">
+      {% set cf_names = [i['product_name'] for i in carried_forward] %}
+      {{ ', '.join(cf_names[:5]) }}{% if len(cf_names) > 5 %} and {{ len(cf_names) - 5 }} more...{% end %}
+    </div>
+  </div>
+</div>
+{% end %}
+
+<form id="orderForm" method="POST" action="{{ form_action }}">
+  <input type="hidden" name="order_id" value="{{ order_id }}">
+  <input type="hidden" name="items_json" id="itemsJson" value="[]">
+
+  <div class="card" style="margin-bottom:1.25rem">
+    <div class="form-row">
+      <div class="form-group" style="flex:0 0 200px">
+        <label>Pack Date</label>
+        <input type="date" name="pack_date" value="{{ today }}" required>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>Notes (optional)</label>
+        <input type="text" name="notes" placeholder="General notes...">
+      </div>
+    </div>
+  </div>
+
+  <!-- GLOBAL SEARCH -->
+  <div style="margin-bottom:.75rem; position:relative;">
+    <span style="position:absolute; left:.85rem; top:50%; transform:translateY(-50%);
+                 color:#9B8AAA; font-size:1rem; pointer-events:none;">🔍</span>
+    <input type="text" id="globalSearchInput"
+           class="search-input"
+           placeholder="Search all products..."
+           oninput="globalSearch(this.value)"
+           style="width:100%; font-size:.95rem; padding:.55rem 1rem .55rem 2.4rem; box-sizing:border-box;">
+  </div>
+
+  <!-- GLOBAL SEARCH RESULTS PANEL -->
+  <div id="global-search-panel" class="card" style="display:none; margin-bottom:1rem;">
+    <p id="global-search-count" style="font-size:.8rem; color:#9B8AAA; margin-bottom:.75rem;"></p>
+    <div id="global-results-grid" class="product-grid"></div>
+  </div>
+
+  <div class="tabs">
+    <button type="button" class="tab-btn active" onclick="switchTab('salon',this)">Salon</button>
+    <button type="button" class="tab-btn" onclick="switchTab('cleaning',this)">Cleaning</button>
+    <button type="button" class="tab-btn" onclick="switchTab('perms',this)">Perms</button>
+    <button type="button" class="tab-btn" onclick="switchTab('tints',this)">Tints</button>
+    <button type="button" class="tab-btn" onclick="switchTab('retail',this)">Retail</button>
+    <button type="button" class="tab-btn" onclick="switchTab('towels',this)">🧺 Towels</button>
+  </div>
+
+  <!-- SALON TAB -->
+  <div class="tab-panel card active" id="tab-salon">
+    <input type="text" class="search-input" placeholder="Search product..."
+           oninput="filterProducts('salon-grid',this.value)">
+    <div class="product-grid" id="salon-grid">
+      {% for i, p in enumerate(salon_products) %}
+      {% set dq = int(draft_qtys.get(p['name'], 0)) %}
+      <div class="product-card{% if dq > 0 %} selected{% end %}" id="ps{{ i }}"
+           data-name="{{ p['name'] }}" data-cat="Salon"
+           data-search="{{ p['name'].lower() }}">
+        <div class="product-name">{{ p['name'] }}</div>
+        <div class="qty-ctrl">
+          <button type="button" class="qty-btn" onclick="changeQty('ps{{ i }}',-1)">−</button>
+          <input type="number" class="qty-input" id="qty-ps{{ i }}" value="{{ dq }}" min="0">
+          <button type="button" class="qty-btn" onclick="changeQty('ps{{ i }}',1)">+</button>
+        </div>
+      </div>
+      {% end %}
+    </div>
+    <div id="salon-custom">
+      {% for ci in draft_custom_products['Salon'] %}
+      <div class="custom-item-row">
+        <span class="custom-badge">✱ Eenmalig</span>
+        <input type="text" class="custom-name" value="{{ ci['name'] }}" placeholder="Produk naam..." data-cat="Salon">
+        <div style="display:flex;gap:.4rem;align-items:center;">
+          <label style="font-size:.78rem;color:#7A6B8A;white-space:nowrap;">Hoev:</label>
+          <input type="number" class="custom-qty" value="{{ ci['qty'] }}" min="1" max="999">
+        </div>
+        <input type="text" class="custom-note" value="{{ ci['note'] }}" placeholder="Nota (opsioneel)">
+        <button type="button" class="custom-remove" onclick="this.parentElement.remove()" title="Verwyder">×</button>
+      </div>
+      {% end %}
+    </div>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="addCustom('salon','Salon')"
+            style="margin-top:.75rem;">✱ Add once-off product</button>
+  </div>
+
+  <!-- CLEANING TAB -->
+  <div class="tab-panel card" id="tab-cleaning">
+    <input type="text" class="search-input" placeholder="Search product..."
+           oninput="filterProducts('cleaning-grid',this.value)">
+    <div class="product-grid" id="cleaning-grid">
+      {% for i, p in enumerate(cleaning_products) %}
+      {% set dq = int(draft_qtys.get(p['name'], 0)) %}
+      <div class="product-card{% if dq > 0 %} selected{% end %}" id="pc{{ i }}"
+           data-name="{{ p['name'] }}" data-cat="Cleaning"
+           data-search="{{ p['name'].lower() }}">
+        <div class="product-name">{{ p['name'] }}</div>
+        <div class="qty-ctrl">
+          <button type="button" class="qty-btn" onclick="changeQty('pc{{ i }}',-1)">−</button>
+          <input type="number" class="qty-input" id="qty-pc{{ i }}" value="{{ dq }}" min="0">
+          <button type="button" class="qty-btn" onclick="changeQty('pc{{ i }}',1)">+</button>
+        </div>
+      </div>
+      {% end %}
+    </div>
+    <div id="cleaning-custom">
+      {% for ci in draft_custom_products['Cleaning'] %}
+      <div class="custom-item-row">
+        <span class="custom-badge">✱ Eenmalig</span>
+        <input type="text" class="custom-name" value="{{ ci['name'] }}" placeholder="Produk naam..." data-cat="Cleaning">
+        <div style="display:flex;gap:.4rem;align-items:center;">
+          <label style="font-size:.78rem;color:#7A6B8A;white-space:nowrap;">Hoev:</label>
+          <input type="number" class="custom-qty" value="{{ ci['qty'] }}" min="1" max="999">
+        </div>
+        <input type="text" class="custom-note" value="{{ ci['note'] }}" placeholder="Nota (opsioneel)">
+        <button type="button" class="custom-remove" onclick="this.parentElement.remove()" title="Verwyder">×</button>
+      </div>
+      {% end %}
+    </div>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="addCustom('cleaning','Cleaning')"
+            style="margin-top:.75rem;">✱ Add once-off product</button>
+  </div>
+
+  <!-- PERMS TAB -->
+  <div class="tab-panel card" id="tab-perms">
+    <input type="text" class="search-input" placeholder="Search product..."
+           oninput="filterProducts('perms-grid',this.value)">
+    <div class="product-grid" id="perms-grid">
+      {% for i, p in enumerate(perm_products) %}
+      {% set dq = int(draft_qtys.get(p['name'], 0)) %}
+      <div class="product-card{% if dq > 0 %} selected{% end %}" id="pp{{ i }}"
+           data-name="{{ p['name'] }}" data-cat="Perms"
+           data-search="{{ p['name'].lower() }}">
+        <div class="product-name">{{ p['name'] }}</div>
+        <div class="qty-ctrl">
+          <button type="button" class="qty-btn" onclick="changeQty('pp{{ i }}',-1)">−</button>
+          <input type="number" class="qty-input" id="qty-pp{{ i }}" value="{{ dq }}" min="0">
+          <button type="button" class="qty-btn" onclick="changeQty('pp{{ i }}',1)">+</button>
+        </div>
+      </div>
+      {% end %}
+    </div>
+    <div id="perm-custom">
+      {% for ci in draft_custom_products['Perms'] %}
+      <div class="custom-item-row">
+        <span class="custom-badge">✱ Eenmalig</span>
+        <input type="text" class="custom-name" value="{{ ci['name'] }}" placeholder="Produk naam..." data-cat="Perms">
+        <div style="display:flex;gap:.4rem;align-items:center;">
+          <label style="font-size:.78rem;color:#7A6B8A;white-space:nowrap;">Hoev:</label>
+          <input type="number" class="custom-qty" value="{{ ci['qty'] }}" min="1" max="999">
+        </div>
+        <input type="text" class="custom-note" value="{{ ci['note'] }}" placeholder="Nota (opsioneel)">
+        <button type="button" class="custom-remove" onclick="this.parentElement.remove()" title="Verwyder">×</button>
+      </div>
+      {% end %}
+    </div>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="addCustom('perm','Perms')"
+            style="margin-top:.75rem;">✱ Add once-off product</button>
+  </div>
+
+  <!-- TINTS TAB -->
+  <div class="tab-panel card" id="tab-tints">
+    <input type="text" class="search-input" placeholder="Search tint..."
+           oninput="filterProducts('tints-grid',this.value)">
+    <div class="product-grid" id="tints-grid">
+      {% for i, p in enumerate(tint_products) %}
+      {% set dq = int(draft_qtys.get(p['name'], 0)) %}
+      <div class="product-card{% if dq > 0 %} selected{% end %}" id="pt{{ i }}"
+           data-name="{{ p['name'] }}" data-cat="Tints"
+           data-search="{{ p['name'].lower() }}">
+        <div class="product-name">{{ p['name'] }}</div>
+        <div class="qty-ctrl">
+          <button type="button" class="qty-btn" onclick="changeQty('pt{{ i }}',-1)">−</button>
+          <input type="number" class="qty-input" id="qty-pt{{ i }}" value="{{ dq }}" min="0">
+          <button type="button" class="qty-btn" onclick="changeQty('pt{{ i }}',1)">+</button>
+        </div>
+      </div>
+      {% end %}
+    </div>
+  </div>
+
+  <!-- RETAIL TAB -->
+  <div class="tab-panel card" id="tab-retail">
+    <input type="text" class="search-input" placeholder="Search product..."
+           oninput="filterProducts('retail-grid',this.value)">
+    <div class="product-grid" id="retail-grid">
+      {% for i, p in enumerate(retail_products) %}
+      {% set dq = int(draft_qtys.get(p['name'], 0)) %}
+      <div class="product-card{% if dq > 0 %} selected{% end %}" id="pr{{ i }}"
+           data-name="{{ p['name'] }}" data-cat="Retail"
+           data-search="{{ p['name'].lower() }}">
+        <div class="product-name">{{ p['name'] }}</div>
+        <div class="qty-ctrl">
+          <button type="button" class="qty-btn" onclick="changeQty('pr{{ i }}',-1)">−</button>
+          <input type="number" class="qty-input" id="qty-pr{{ i }}" value="{{ dq }}" min="0">
+          <button type="button" class="qty-btn" onclick="changeQty('pr{{ i }}',1)">+</button>
+        </div>
+      </div>
+      {% end %}
+    </div>
+    <div id="retail-custom">
+      {% for ci in draft_custom_products['Retail'] %}
+      <div class="custom-item-row">
+        <span class="custom-badge">✱ Eenmalig</span>
+        <input type="text" class="custom-name" value="{{ ci['name'] }}" placeholder="Produk naam..." data-cat="Retail">
+        <div style="display:flex;gap:.4rem;align-items:center;">
+          <label style="font-size:.78rem;color:#7A6B8A;white-space:nowrap;">Hoev:</label>
+          <input type="number" class="custom-qty" value="{{ ci['qty'] }}" min="1" max="999">
+        </div>
+        <input type="text" class="custom-note" value="{{ ci['note'] }}" placeholder="Nota (opsioneel)">
+        <button type="button" class="custom-remove" onclick="this.parentElement.remove()" title="Verwyder">×</button>
+      </div>
+      {% end %}
+    </div>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="addCustom('retail','Retail')"
+            style="margin-top:.75rem;">✱ Add once-off product</button>
+  </div>
+
+  <!-- TOWELS TAB -->
+  <div class="tab-panel card" id="tab-towels">
+    <p style="font-size:.85rem; color:#7A6B8A; margin-bottom:1.1rem;">
+      Enter how many clean towels you need this week.
+      {% if last_towels %}
+      <span style="color:#7B3FA0; font-weight:600;">Pre-filled from last delivery.</span>
+      {% end %}
+    </p>
+    <table class="table" style="table-layout:fixed; width:100%; max-width:680px;">
+      <colgroup>
+        <col style="width:32%">
+        <col style="width:20%">
+        <col style="width:48%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th style="text-align:center;">Needed</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for i, t in enumerate(towel_types) %}
+      {% set lt = last_towels.get(t, {}) %}
+      {% set last_collected = lt.get('collected', 0) %}
+      {% set last_next_qty  = lt.get('next_qty', 0) %}
+      {% set prefill = last_next_qty if last_next_qty > 0 else last_collected %}
+      {% set _dv = draft_towel_qtys.get(t, -1) %}
+      {% set draft_val = _dv if _dv > 0 else prefill %}
+      {% set draft_note = draft_towel_notes.get(t, '') %}
+      <tr>
+        <td style="font-weight:600; color:#3D1F5C;">{{ t }}</td>
+        <td style="text-align:center;">
+          <input type="number"
+                 class="towel-qty-input"
+                 id="towel_qty_{{ i }}"
+                 data-towel-type="{{ t }}"
+                 data-last-collected="{{ int(prefill) if prefill == int(prefill) else prefill }}"
+                 value="{{ int(draft_val) if draft_val == int(draft_val) else draft_val }}"
+                 min="0" step="1"
+                 oninput="checkTowelNote({{ i }}, {{ int(prefill) if prefill == int(prefill) else prefill }})"
+                 style="width:65px; text-align:center; border:1.5px solid #D5C8E8;
+                        border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700;">
+          {% if last_next_qty > 0 %}
+          <div style="font-size:.72rem; color:#9B59B6; margin-top:.12rem;">sent next week: {{ int(last_next_qty) if last_next_qty == int(last_next_qty) else last_next_qty }}</div>
+          {% elif last_collected > 0 %}
+          <div style="font-size:.72rem; color:#9B59B6; margin-top:.12rem;">last collected: {{ int(last_collected) if last_collected == int(last_collected) else last_collected }}</div>
+          {% end %}
+        </td>
+        <td>
+          <input type="text"
+                 class="towel-note-input"
+                 id="towel_note_input_{{ i }}"
+                 data-towel-index="{{ i }}"
+                 value="{{ draft_note }}"
+                 placeholder="Note (optional)"
+                 style="width:100%; border:1px solid #D5C8E8; border-radius:6px;
+                        padding:.28rem .5rem; font-size:.8rem; color:#2C1A3E; background:#FAFAFE;">
+          <div id="towel_note_{{ i }}" style="font-size:.78rem; color:#A04000; display:none; margin-top:.2rem;">
+            ⚠️ Last collected: <strong id="towel_coll_{{ i }}"></strong> — does not match
+          </div>
+        </td>
+      </tr>
+      {% end %}
+      </tbody>
+    </table>
+
+    <!-- Custom / extra towel types — columns match the table above -->
+    <table id="custom-towel-table"
+           style="table-layout:fixed; width:100%; max-width:680px; border-collapse:collapse;">
+      <colgroup>
+        <col style="width:32%">
+        <col style="width:20%">
+        <col style="width:44%">
+        <col style="width:4%">
+      </colgroup>
+      <tbody id="custom-towel-rows">
+      {% for ct in draft_custom_towels %}
+      <tr class="custom-towel-row">
+        <td style="padding:.3rem .4rem .3rem 0;">
+          <input type="text" class="towel-custom-name" value="{{ ct['name'] }}"
+                 placeholder="Towel type"
+                 style="width:100%; border:1.5px solid #C39BD3; border-radius:6px;
+                        padding:.28rem .5rem; font-size:.88rem; color:#3D1F5C; box-sizing:border-box;">
+        </td>
+        <td style="text-align:center; padding:.3rem .25rem;">
+          <input type="number" class="towel-custom-qty" value="{{ ct['qty'] }}" min="0" step="1"
+                 style="width:65px; text-align:center; border:1.5px solid #D5C8E8;
+                        border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700;">
+        </td>
+        <td style="padding:.3rem .25rem;">
+          <input type="text" class="towel-custom-note" value="{{ ct['note'] }}"
+                 placeholder="Note (optional)"
+                 style="width:100%; border:1px solid #D5C8E8; border-radius:6px;
+                        padding:.28rem .5rem; font-size:.8rem; color:#2C1A3E;
+                        background:#FAFAFE; box-sizing:border-box;">
+        </td>
+        <td style="text-align:center; padding:.3rem 0;">
+          <button type="button" onclick="this.closest('.custom-towel-row').remove()"
+                  style="background:none; border:none; color:#C0392B; font-size:1.2rem;
+                         cursor:pointer; padding:0; line-height:1;">×</button>
+        </td>
+      </tr>
+      {% end %}
+      </tbody>
+    </table>
+    <button type="button" onclick="addCustomTowelRow()"
+            class="btn btn-ghost btn-sm"
+            style="margin-top:.6rem; color:#7B3FA0; border-color:#C39BD3;">
+      🧺 Add towel type
+    </button>
+  </div>
+
+  <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end">
+    <a href="{{ back_url }}" class="btn btn-secondary">Cancel</a>
+    <button type="button" class="btn btn-primary btn-lg" onclick="prepareAndSubmit()">
+      {{ submit_label }} →
+    </button>
+  </div>
+</form>
+{% end %}
+{% block scripts %}
+<script src="/static/js/order.js?v=8"></script>
+<script>
+// Voeg 'n ekstra handoek-ry by (as <tr> sodat dit netjies belyn met die tabel hierbo)
+function addCustomTowelRow() {
+  var tbody = document.getElementById('custom-towel-rows');
+  var tr = document.createElement('tr');
+  tr.className = 'custom-towel-row';
+  tr.innerHTML =
+    '<td style="padding:.3rem .4rem .3rem 0;">' +
+      '<input type="text" class="towel-custom-name" placeholder="Towel type"' +
+      ' style="width:100%; border:1.5px solid #C39BD3; border-radius:6px;' +
+      ' padding:.28rem .5rem; font-size:.88rem; color:#3D1F5C; box-sizing:border-box;">' +
+    '</td>' +
+    '<td style="text-align:center; padding:.3rem .25rem;">' +
+      '<input type="number" class="towel-custom-qty" value="1" min="0" step="1"' +
+      ' style="width:65px; text-align:center; border:1.5px solid #D5C8E8;' +
+      ' border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700;">' +
+    '</td>' +
+    '<td style="padding:.3rem .25rem;">' +
+      '<input type="text" class="towel-custom-note" placeholder="Note (optional)"' +
+      ' style="width:100%; border:1px solid #D5C8E8; border-radius:6px;' +
+      ' padding:.28rem .5rem; font-size:.8rem; color:#2C1A3E; background:#FAFAFE; box-sizing:border-box;">' +
+    '</td>' +
+    '<td style="text-align:center; padding:.3rem 0;">' +
+      '<button type="button" onclick="this.closest(\'.custom-towel-row\').remove()"' +
+      ' style="background:none; border:none; color:#C0392B; font-size:1.2rem;' +
+      ' cursor:pointer; padding:0; line-height:1;">×</button>' +
+    '</td>';
+  tbody.appendChild(tr);
+  tr.querySelector('.towel-custom-name').focus();
+}
+
+// Handoeke-nota: wys waarskuwing as qty verskil van laas opgetel
+function checkTowelNote(i, lastCollected) {
+  var input = document.getElementById('towel_qty_' + i);
+  var note  = document.getElementById('towel_note_' + i);
+  var collEl= document.getElementById('towel_coll_' + i);
+  if (!input || !note) return;
+  var qty = parseFloat(input.value) || 0;
+  // Wys nota slegs as laas opgetel > 0 EN die nuwe qty verskil daarvan
+  if (lastCollected > 0 && qty !== lastCollected) {
+    if (collEl) collEl.textContent = lastCollected;
+    note.style.display = 'block';
+  } else {
+    note.style.display = 'none';
+  }
+}
+</script>
+{% end %}

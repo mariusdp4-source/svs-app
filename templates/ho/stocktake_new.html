@@ -1,0 +1,234 @@
+{% extends "../base.html" %}
+{% block title %}New Stock Take{% end %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>📦 New Stock Take</h2>
+    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem">
+      Count & Save — fill in quantities for each product
+    </p>
+  </div>
+  <a href="/ho/stocktake" class="btn btn-secondary">← Back</a>
+</div>
+
+<form method="POST" action="/ho/stocktake/new" id="stockTakeForm">
+
+  <!-- Header info card -->
+  <div class="card" style="margin-bottom:1.25rem">
+    <div class="form-row">
+      <div class="form-group" style="flex:0 0 180px">
+        <label>Date</label>
+        <input type="date" name="taken_at" value="{{ today }}" required>
+      </div>
+      <div class="form-group" style="flex:0 0 200px">
+        <label>Taken By</label>
+        <input type="text" name="taken_by" value="{{ user['name'] }}" placeholder="Name...">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>Notes (optional)</label>
+        <input type="text" name="notes" placeholder="Notes for this stock take...">
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick total counter -->
+  <div style="display:flex; gap:.75rem; align-items:center; margin-bottom:1rem; flex-wrap:wrap;">
+    <span style="font-size:.9rem; color:#7A6B8A;">Items with quantity &gt; 0:</span>
+    <span id="itemCount" style="background:#EAE2F4; color:#3D1F5C; border-radius:12px;
+                                 padding:.2rem .75rem; font-weight:700; font-size:.95rem;">0</span>
+    <span style="font-size:.8rem; color:#9B8CAE;">(only items with qty &gt; 0 are saved)</span>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button type="button" class="tab-btn active" onclick="switchTab('salon',this)">
+      Salon
+    </button>
+    <button type="button" class="tab-btn" onclick="switchTab('cleaning',this)">
+      Cleaning
+    </button>
+    <button type="button" class="tab-btn" onclick="switchTab('perms',this)">
+      Perms
+    </button>
+    <button type="button" class="tab-btn" onclick="switchTab('retail',this)">
+      Retail
+    </button>
+  </div>
+
+  <!-- Salon tab -->
+  <div class="tab-panel card active" id="tab-salon">
+    <input type="text" class="search-input" placeholder="Search Salon product..."
+           oninput="filterRows('salon-body', this.value)" style="margin-bottom:.75rem;">
+    <table class="table" style="table-layout:fixed; width:100%;">
+      <colgroup>
+        <col style="width:75%">
+        <col style="width:25%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th style="text-align:center;">Quantity</th>
+        </tr>
+      </thead>
+      <tbody id="salon-body">
+      {% for p in salon_products %}
+      <tr data-search="{{ p['name'].lower() }}">
+        <td style="font-weight:500; color:#2C1A3E;">{{ p['name'] }}</td>
+        <td style="text-align:center;">
+          <input type="number" name="qty_{{ p['id'] }}" value="0" min="0" step="1"
+                 class="st-qty" data-cat="salon"
+                 style="width:80px; text-align:center; border:1.5px solid #D5C8E8;
+                        border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700;
+                        color:#3D1F5C;"
+                 oninput="updateCount(this)">
+        </td>
+      </tr>
+      {% end %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Cleaning tab -->
+  <div class="tab-panel card" id="tab-cleaning">
+    <input type="text" class="search-input" placeholder="Search Cleaning product..."
+           oninput="filterRows('cleaning-body', this.value)" style="margin-bottom:.75rem;">
+    <table class="table" style="table-layout:fixed; width:100%;">
+      <colgroup>
+        <col style="width:75%">
+        <col style="width:25%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th style="text-align:center;">Quantity</th>
+        </tr>
+      </thead>
+      <tbody id="cleaning-body">
+      {% for p in cleaning_products %}
+      <tr data-search="{{ p['name'].lower() }}">
+        <td style="font-weight:500; color:#2C1A3E;">{{ p['name'] }}</td>
+        <td style="text-align:center;">
+          <input type="number" name="qty_{{ p['id'] }}" value="0" min="0" step="1"
+                 class="st-qty" data-cat="cleaning"
+                 style="width:80px; text-align:center; border:1.5px solid #D5C8E8;
+                        border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700;
+                        color:#3D1F5C;"
+                 oninput="updateCount(this)">
+        </td>
+      </tr>
+      {% end %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Perms tab -->
+  <div class="tab-panel card" id="tab-perms">
+    <input type="text" class="search-input" placeholder="Search Perms product..."
+           oninput="filterRows('perms-body', this.value)" style="margin-bottom:.75rem;">
+    <table class="table" style="table-layout:fixed; width:100%;">
+      <colgroup>
+        <col style="width:75%">
+        <col style="width:25%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th style="text-align:center;">Quantity</th>
+        </tr>
+      </thead>
+      <tbody id="perms-body">
+      {% for p in perm_products %}
+      <tr data-search="{{ p['name'].lower() }}">
+        <td style="font-weight:500; color:#2C1A3E;">{{ p['name'] }}</td>
+        <td style="text-align:center;">
+          <input type="number" name="qty_{{ p['id'] }}" value="0" min="0" step="1"
+                 class="st-qty" data-cat="perms"
+                 style="width:80px; text-align:center; border:1.5px solid #D5C8E8;
+                        border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700;
+                        color:#3D1F5C;"
+                 oninput="updateCount(this)">
+        </td>
+      </tr>
+      {% end %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Retail tab -->
+  <div class="tab-panel card" id="tab-retail">
+    <input type="text" class="search-input" placeholder="Search Retail product..."
+           oninput="filterRows('retail-body', this.value)" style="margin-bottom:.75rem;">
+    <table class="table" style="table-layout:fixed; width:100%;">
+      <colgroup>
+        <col style="width:75%">
+        <col style="width:25%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th style="text-align:center;">Quantity</th>
+        </tr>
+      </thead>
+      <tbody id="retail-body">
+      {% for p in retail_products %}
+      <tr data-search="{{ p['name'].lower() }}">
+        <td style="font-weight:500; color:#2C1A3E;">{{ p['name'] }}</td>
+        <td style="text-align:center;">
+          <input type="number" name="qty_{{ p['id'] }}" value="0" min="0" step="1"
+                 class="st-qty" data-cat="retail"
+                 style="width:80px; text-align:center; border:1.5px solid #D5C8E8;
+                        border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700;
+                        color:#3D1F5C;"
+                 oninput="updateCount(this)">
+        </td>
+      </tr>
+      {% end %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Submit -->
+  <div style="display:flex; gap:1rem; justify-content:space-between; align-items:center;
+              margin-top:1.5rem; flex-wrap:wrap;">
+    <a href="/ho/stocktake" class="btn btn-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary btn-lg">💾 Save Stock Take</button>
+  </div>
+
+</form>
+{% end %}
+{% block scripts %}
+<script>
+// Tab switching
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// Filter rows in a table body
+function filterRows(bodyId, query) {
+  var q = query.toLowerCase();
+  document.querySelectorAll('#' + bodyId + ' tr').forEach(function(row) {
+    var search = (row.dataset.search || '');
+    row.style.display = (q === '' || search.indexOf(q) >= 0) ? '' : 'none';
+  });
+}
+
+// Live count of filled-in items
+function updateCount(input) {
+  var row = input.closest('tr');
+  var qty = parseFloat(input.value) || 0;
+  if (row) {
+    row.style.background = qty > 0 ? '#EAF6EA' : '';
+    input.style.borderColor = qty > 0 ? '#27AE60' : '#D5C8E8';
+    input.style.color = qty > 0 ? '#27AE60' : '#3D1F5C';
+  }
+  var total = 0;
+  document.querySelectorAll('.st-qty').forEach(function(el) {
+    if ((parseFloat(el.value) || 0) > 0) total++;
+  });
+  document.getElementById('itemCount').textContent = total;
+}
+</script>
+{% end %}

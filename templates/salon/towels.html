@@ -1,0 +1,139 @@
+{% extends "../base.html" %}
+{% block title %}Record Towels{% end %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h2>🧺 Record Towels</h2>
+    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem">
+      Record towels for this salon — independent of a stock order
+    </p>
+  </div>
+</div>
+
+<form method="POST" action="/salon/towels">
+
+  <div class="card" style="margin-bottom:1.25rem; padding:1rem 1.4rem;">
+    <div class="form-group" style="max-width:220px;">
+      <label>Date</label>
+      <input type="date" name="week_date" value="{{ today }}" required>
+    </div>
+  </div>
+
+  <div class="card" style="padding:1.25rem 1.5rem; margin-bottom:1.5rem; overflow-x:auto;">
+
+    <!-- Legend -->
+    <div style="display:flex; gap:1.25rem; flex-wrap:wrap; margin-bottom:1rem; font-size:.8rem;">
+      <span style="color:#A04000; font-weight:600;">🧺 Collected (Dirty)</span>
+      <span style="color:#7A6B8A;">= fixed amount from the submitted order</span>
+      <span style="color:#27AE60; font-weight:600;">✅ Returned (Clean)</span>
+      <span style="color:#7A6B8A;">= how many clean towels received today</span>
+      <span style="color:#7B3FA0; font-weight:600;">📦 Sent for next week</span>
+      <span style="color:#7A6B8A;">= will be pre-filled on next order</span>
+    </div>
+
+    <table class="table" style="table-layout:fixed; width:100%; min-width:560px;">
+      <colgroup>
+        <col style="width:20%">
+        <col style="width:16%">
+        <col style="width:20%">
+        <col style="width:23%">
+        <col style="width:21%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th style="text-align:center; color:#A04000;">🧺 Collected<br><span style="font-weight:400; font-size:.75em;">(Dirty)</span></th>
+          <th style="text-align:center; color:#27AE60;">✅ Returned<br><span style="font-weight:400; font-size:.75em;">(Clean)</span></th>
+          <th style="text-align:center; color:#7B3FA0;">📦 Sent for<br><span style="font-weight:400; font-size:.75em;">next week</span></th>
+          <th style="text-align:center; font-size:.78rem; color:#A04000;">⚠️ Difference<br><span style="font-weight:400; font-size:.9em;">(received vs dirty)</span></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for i, t in enumerate(towel_types) %}
+      {% set vuil = active_order_towels.get(t, 0) %}
+      {% set lt = last_towels.get(t, {}) %}
+      <tr id="trow_{{ i }}">
+        <td style="font-weight:600; color:#3D1F5C;">
+          {{ t }}
+          <!-- Hidden field: Collected (Dirty) is auto-saved from the active order -->
+          <input type="hidden" name="tcoll_{{ i }}"
+                 value="{{ int(vuil) if vuil == int(vuil) else vuil }}">
+        </td>
+
+        <!-- Collected (Dirty) — fixed, not editable -->
+        <td style="text-align:center;">
+          {% if vuil > 0 %}
+          <span style="font-size:1.1rem; font-weight:700; color:#A04000;
+                       background:#FEF6E4; border-radius:6px; padding:.2rem .55rem;
+                       display:inline-block;">
+            {{ int(vuil) if vuil == int(vuil) else vuil }}
+          </span>
+          {% else %}
+          <span style="color:#C8BFD8; font-size:.9rem;">–</span>
+          {% end %}
+        </td>
+
+        <!-- Returned (Clean) — editable -->
+        <td style="text-align:center;">
+          <input type="number"
+                 name="tsent_{{ i }}"
+                 id="tsent_{{ i }}"
+                 value="0"
+                 min="0" step="1"
+                 oninput="checkMismatch({{ i }}, {{ int(vuil) if vuil == int(vuil) else vuil }})"
+                 style="width:65px; text-align:center; border:1.5px solid #A8D5A2;
+                        border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700;
+                        color:#27AE60;">
+        </td>
+
+        <!-- Sent for next week — editable -->
+        <td style="text-align:center;">
+          <input type="number"
+                 name="tnext_{{ i }}"
+                 id="tnext_{{ i }}"
+                 value="0"
+                 min="0" step="1"
+                 style="width:65px; text-align:center; border:1.5px solid #C39BD3;
+                        border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700;
+                        color:#7B3FA0;">
+          <div style="font-size:.7rem; color:#9B59B6; margin-top:.15rem;">→ next order</div>
+        </td>
+
+        <!-- Difference column -->
+        <td style="text-align:center;">
+          <span id="diff_{{ i }}" style="font-size:.85rem; font-weight:700; display:none;"></span>
+        </td>
+      </tr>
+      {% end %}
+      </tbody>
+    </table>
+  </div>
+
+  <div style="display:flex; gap:1rem; justify-content:space-between; align-items:center; flex-wrap:wrap;">
+    <a href="/salon/dashboard" class="btn btn-secondary">← Back to Dashboard</a>
+    <button type="submit" class="btn btn-primary btn-lg">💾 Save Towels</button>
+  </div>
+
+</form>
+
+{% end %}
+{% block scripts %}
+<script>
+function checkMismatch(i, vuil) {
+  var ontvang = parseFloat(document.getElementById('tsent_' + i).value) || 0;
+  var diff = document.getElementById('diff_' + i);
+  var row  = document.getElementById('trow_'  + i);
+  if (ontvang !== vuil && (ontvang > 0 || vuil > 0)) {
+    var delta = ontvang - vuil;
+    diff.textContent = (delta > 0 ? '+' : '') + delta;
+    diff.style.color = delta > 0 ? '#27AE60' : '#E67E22';
+    diff.style.display = 'inline';
+    row.style.background = '#FEF9E7';
+  } else {
+    diff.style.display = 'none';
+    row.style.background = '';
+  }
+}
+</script>
+{% end %}

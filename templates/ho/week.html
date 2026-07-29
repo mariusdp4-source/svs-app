@@ -1,0 +1,859 @@
+{% extends "../base.html" %}
+{% block title %}Week {{ pack_date }}{% end %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h2>📋 Week {{ pack_date }}</h2>
+    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem">
+      <strong style="color:#3D1F5C;">{{ pack_date }}</strong>
+      → <strong style="color:#3D1F5C;">{{ week_friday }}</strong>
+      &nbsp;·&nbsp;
+      {{ len(orders) }} salon{{ '' if len(orders) == 1 else 's' }} ·
+      {{ len([o for o in orders if o['status'] == 'packed']) }} packed ·
+      {{ len([o for o in orders if o['status'] == 'submitted']) }} outstanding
+    </p>
+  </div>
+  <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+    <a href="/ho/week/{{ pack_date }}/packing-list" class="btn btn-secondary">
+      ↓ Packing List (Word)
+    </a>
+  </div>
+</div>
+
+<!-- ── Salon cards ── -->
+<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+            gap:1rem; margin-bottom:1.75rem;">
+  {% for o in orders %}
+  {% set is_packed_out = o['status'] == 'packed' and o.get('has_outstanding', False) %}
+  <div class="card" style="padding:1.1rem 1.25rem;
+       border-left:4px solid {% if o['status'] == 'delivered' %}#7B3FA0
+       {% elif is_packed_out %}#E67E22
+       {% elif o['status'] == 'packed' %}#27AE60
+       {% else %}#F39C12{% end %};">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:.4rem;">
+      <span style="font-size:1.1rem; font-weight:800; color:#3D1F5C;">{{ o['salon_code'] }}</span>
+      <span style="font-size:.72rem; font-weight:700; padding:.18rem .55rem; border-radius:99px;
+        {% if o['status'] == 'delivered' %}background:#EDE9F5; color:#7B3FA0;
+        {% elif is_packed_out %}background:#FEF0E6; color:#E67E22;
+        {% elif o['status'] == 'packed' %}background:#D5F5E3; color:#1E8449;
+        {% else %}background:#FDEBD0; color:#A04000;
+        {% end %}">
+        {% if o['status'] == 'delivered' %}🚚 Delivered
+        {% elif is_packed_out %}📦 Packed – Outstanding
+        {% elif o['status'] == 'packed' %}✅ Packed
+        {% else %}⏳ Submitted{% end %}
+      </span>
+    </div>
+    <p style="font-size:.82rem; color:#7A6B8A; margin:.1rem 0 .2rem;">{{ o['salon_name'] }}</p>
+    {% set sub_at = (o.get('submitted_at') or '')[:16] %}
+    {% if sub_at %}
+    <p style="font-size:.72rem; color:#A09AB5; margin-bottom:.6rem;">
+      📅 {{ sub_at.replace('T', ' ') }}
+    </p>
+    {% else %}
+    <p style="margin-bottom:.6rem;"></p>
+    {% end %}
+    <div style="display:flex; gap:.4rem; flex-wrap:wrap;">
+      <a href="/ho/order/{{ o['id'] }}" class="btn btn-sm btn-primary"
+         style="{% if is_packed_out %}background:#E67E22; border-color:#E67E22;
+                {% elif o['status'] == 'delivered' %}background:#9B59B6; border-color:#9B59B6;
+                {% elif o['status'] == 'packed' %}background:#27AE60; border-color:#27AE60;{% end %}">
+        {% if is_packed_out %}📦 Pack Outstanding
+        {% elif o['status'] == 'delivered' %}🚚 View
+        {% elif o['status'] == 'packed' %}✅ View/Repack
+        {% else %}📦 Pack Order{% end %}
+      </a>
+      {% if o['status'] != 'delivered' %}
+      <a href="/salon/order/{{ o['id'] }}" class="btn btn-sm btn-ghost">View</a>
+      {% end %}
+    </div>
+  </div>
+  {% end %}
+</div>
+
+<!-- ── Tabs ── -->
+<div style="display:flex; gap:0; margin-bottom:-1px; flex-wrap:wrap;">
+  <button class="week-tab active" id="tab-all" onclick="showTab('all')">
+    📦 Combined List
+    <span style="background:#7B3FA0; color:#fff; border-radius:99px;
+                 padding:.1rem .55rem; font-size:.75rem; margin-left:.4rem;">
+      {{ len(product_items) }}
+    </span>
+  </button>
+  <button class="week-tab" id="tab-out" onclick="showTab('out')"
+          style="{% if not outstanding %}opacity:.5;{% end %}">
+    ⚠️ Outstanding
+    <span style="background:{% if outstanding %}#E74C3C{% else %}#AAA{% end %}; color:#fff;
+                 border-radius:99px; padding:.1rem .55rem; font-size:.75rem; margin-left:.4rem;">
+      {{ len(outstanding) }}
+    </span>
+  </button>
+  <button class="week-tab" id="tab-supplier" onclick="showTab('supplier')"
+          style="{% if not outstanding %}opacity:.5;{% end %}">
+    🛒 Supplier Order
+    <span style="background:{% if outstanding %}#1565C0{% else %}#AAA{% end %}; color:#fff;
+                 border-radius:99px; padding:.1rem .55rem; font-size:.75rem; margin-left:.4rem;">
+      {{ len(supplier_groups) }}
+    </span>
+  </button>
+  <button class="week-tab" id="tab-towels" onclick="showTab('towels')"
+          style="{% if not towel_items %}opacity:.5;{% end %}">
+    🧺 Towels
+    <span style="background:{% if towel_items %}#7B3FA0{% else %}#AAA{% end %}; color:#fff;
+                 border-radius:99px; padding:.1rem .55rem; font-size:.75rem; margin-left:.4rem;">
+      {{ len(towel_items) }}
+    </span>
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     COMBINED LIST
+══════════════════════════════════════════════ -->
+<div id="panel-all" class="week-panel card" style="border-radius:0 12px 12px 12px; padding:0; overflow:hidden;">
+  {% if product_items %}
+  <!-- Summary bar — helps verify all items are loaded -->
+  {% set fully_packed_count = len([i for i in product_items if i['packed_qty'] >= i['total_qty']]) %}
+  {% set outstanding_count  = len([i for i in product_items if i['packed_qty'] < i['total_qty']]) %}
+  <div style="padding:.55rem 1.4rem; background:#F0ECF8; border-bottom:1px solid #D5C8E8;
+              font-size:.8rem; display:flex; gap:1.25rem; flex-wrap:wrap; align-items:center;">
+    <span style="color:#7A6B8A;">📋 {{ len(product_items) }} product{{ '' if len(product_items) == 1 else 's' }} ordered</span>
+    <span style="color:#27AE60; font-weight:700;">✅ {{ fully_packed_count }} fully packed</span>
+    <span style="color:#C0392B; font-weight:700;">⚠️ {{ outstanding_count }} outstanding</span>
+    <div style="margin-left:auto; display:flex; gap:.45rem;">
+      <a href="/ho/week/{{ pack_date }}/print?type=all" target="_blank"
+         style="text-decoration:none; padding:.28rem .8rem; border-radius:6px;
+                border:1.5px solid #D5C8E8; font-size:.78rem; color:#3D1F5C; background:#fff;
+                white-space:nowrap; font-weight:600;">🖨️ Print</a>
+      <a href="/ho/week/{{ pack_date }}/packing-list"
+         style="text-decoration:none; padding:.28rem .8rem; border-radius:6px;
+                border:1.5px solid #D5C8E8; font-size:.78rem; color:#3D1F5C; background:#EDE0F8;
+                white-space:nowrap; font-weight:600;">⬇️ Word</a>
+    </div>
+  </div>
+  {% for cat in ['Salon','Cleaning','Perms','Tints','Retail'] %}
+    {% set cat_items = [i for i in product_items if i['category'] == cat] %}
+    {% if cat_items %}
+    <div style="border-bottom:1px solid var(--border); padding:1.1rem 1.4rem;">
+      <h3 style="margin-bottom:.65rem; font-size:.92rem;
+                 text-transform:uppercase; letter-spacing:.05em; color:#3D1F5C;">
+        {{ cat }}
+      </h3>
+      <table class="table" style="width:100%; margin:0; border-collapse:collapse; table-layout:fixed;">
+        <colgroup>
+          <col style="width:26%">
+          <col style="width:9%">
+          <col style="width:9%">
+          <col style="width:14%">
+          <col style="width:42%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th style="text-align:center; white-space:nowrap;">Ordered</th>
+            <th style="text-align:center; color:#27AE60; white-space:nowrap;">Packed</th>
+            <th style="text-align:center; color:#C0392B; white-space:nowrap;">Outstanding</th>
+            <th style="white-space:nowrap;">Per Salon</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for item in cat_items %}
+        {% set out_qty = item['total_qty'] - item['packed_qty'] %}
+        {% set done = out_qty <= 0 %}
+        <tr style="{% if done %}background:#F0FBF4;{% end %}">
+          <td style="font-weight:600; color:{% if done %}#7A6B8A{% else %}#2C1A3E{% end %}; word-break:break-word;">
+            {% if done %}
+            <span style="color:#27AE60; margin-right:.25rem;">✅</span>
+            {% end %}
+            {{ item['product_name'] }}
+          </td>
+          <td style="text-align:center; font-weight:700;
+                     color:{% if done %}#9B8CAE{% else %}#7B3FA0{% end %};">
+            {{ int(item['total_qty']) if item['total_qty'] == int(item['total_qty']) else item['total_qty'] }}
+          </td>
+          <td style="text-align:center; font-weight:700;
+                     color:{% if done %}#7A6B8A{% else %}#27AE60{% end %};">
+            {{ int(item['packed_qty']) if item['packed_qty'] == int(item['packed_qty']) else item['packed_qty'] }}
+          </td>
+          <td style="text-align:center; font-weight:800;
+                     color:{% if out_qty > 0 %}#C0392B{% else %}#27AE60{% end %};">
+            {% if done %}–{% else %}
+            {{ int(out_qty) if out_qty == int(out_qty) else out_qty }}
+            {% end %}
+          </td>
+          <td>
+            <div style="display:flex; flex-wrap:wrap; gap:.2rem .25rem; align-items:flex-start;">
+            {% for s in item['salons'] %}
+            {% if s['packed'] %}
+              {% set s_pq = s.get('packed_qty', s['qty']) %}
+              {% set s_oq = s['qty'] - s_pq %}
+              <span style="display:inline-flex; align-items:center;
+                           padding:.15rem .45rem; border-radius:4px;
+                           background:#D5F5E3; color:#1E8449;
+                           font-weight:600; font-size:.78rem; white-space:nowrap;">
+                {{ s['code'] }}:{{ int(s_pq) if s_pq == int(s_pq) else s_pq }} ✓
+              </span>
+              {% if s_oq > 0 %}
+              <span style="display:inline-flex; align-items:center;
+                           padding:.15rem .45rem; border-radius:4px;
+                           background:#FADBD8; color:#C0392B;
+                           font-weight:600; font-size:.78rem; white-space:nowrap;">
+                {{ s['code'] }}:{{ int(s_oq) if s_oq == int(s_oq) else s_oq }} ✗
+              </span>
+              {% end %}
+            {% else %}
+            <span style="display:inline-flex; align-items:center;
+                         padding:.15rem .45rem; border-radius:4px;
+                         background:#FDEBD0; color:#7D6608;
+                         font-weight:600; font-size:.78rem; white-space:nowrap;">
+              {{ s['code'] }}:{{ int(s['qty']) if s['qty'] == int(s['qty']) else s['qty'] }}
+            </span>
+            {% end %}
+            {% end %}
+            </div>
+          </td>
+        </tr>
+        {% end %}
+        </tbody>
+      </table>
+    </div>
+    {% end %}
+  {% end %}
+  {% else %}
+  <div style="padding:2.5rem; text-align:center; color:#7A6B8A;">
+    No orders for this week.
+  </div>
+  {% end %}
+</div>
+
+<!-- ══════════════════════════════════════════════
+     TOWELS
+══════════════════════════════════════════════ -->
+<div id="panel-towels" class="week-panel card"
+     style="display:none; border-radius:0 12px 12px 12px; padding:0; overflow:hidden;">
+
+  <!-- Header bar -->
+  <div style="padding:.85rem 1.4rem; border-bottom:1px solid var(--border);
+              display:flex; align-items:center; gap:.85rem; flex-wrap:wrap;
+              background:#FAF6FF;">
+    <span style="font-size:.82rem; color:#7B3FA0; font-weight:600; flex:1;">
+      🧺 {{ len(towel_items) }} towel type{{ 's' if len(towel_items) != 1 else '' }}
+      across {{ len(towel_salons) }} salon{{ 's' if len(towel_salons) != 1 else '' }}
+    </span>
+    <div style="display:flex; gap:.45rem;">
+      <a href="/ho/week/{{ pack_date }}/towels-print" target="_blank"
+         style="text-decoration:none; padding:.3rem .8rem; border-radius:6px;
+                border:1.5px solid #C39BD3; font-size:.78rem; color:#7B3FA0;
+                background:#fff; font-weight:600; white-space:nowrap;">
+        🖨️ Print
+      </a>
+      <a href="/ho/week/{{ pack_date }}/towels-word"
+         style="text-decoration:none; padding:.3rem .8rem; border-radius:6px;
+                border:1.5px solid #C39BD3; font-size:.78rem; color:#7B3FA0;
+                background:#EDE0F8; font-weight:600; white-space:nowrap;">
+        ⬇️ Word
+      </a>
+    </div>
+  </div>
+
+  {% if towel_items %}
+  <div style="padding:1.1rem 1.4rem; overflow-x:auto;">
+    <table class="table" style="margin:0; border-collapse:collapse; min-width:100%;">
+      <thead>
+        <tr>
+          <th style="min-width:140px;">Towel Type</th>
+          <th style="text-align:center; color:#7B3FA0; min-width:65px;">Total</th>
+          {% for code in towel_salons %}
+          <th style="text-align:center; min-width:55px;">{{ code }}</th>
+          {% end %}
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in towel_items %}
+      {% set row_data = towel_matrix.get(item['product_name'], {}) %}
+      <tr>
+        <td style="font-weight:700; color:#3D1F5C;">{{ item['product_name'] }}</td>
+        <td style="text-align:center; font-weight:800; color:#7B3FA0; font-size:1rem;">
+          {{ int(item['total_qty']) if item['total_qty'] == int(item['total_qty']) else item['total_qty'] }}
+        </td>
+        {% for code in towel_salons %}
+        {% set qty = row_data.get(code, 0) %}
+        <td style="text-align:center; {% if qty > 0 %}font-weight:700; color:#3D1F5C;{% else %}color:#C0C0C0;{% end %}">
+          {% if qty > 0 %}{{ int(qty) if qty == int(qty) else qty }}{% else %}–{% end %}
+        </td>
+        {% end %}
+      </tr>
+      {% end %}
+      <!-- Totals row -->
+      <tr style="background:#EDE0F8; border-top:2px solid #C39BD3;">
+        <td style="font-weight:800; color:#3D1F5C; font-size:.9rem;">TOTAL</td>
+        <td style="text-align:center; font-weight:800; color:#7B3FA0; font-size:1.05rem;">
+          {% set grand = sum([i['total_qty'] for i in towel_items]) %}
+          {{ int(grand) if grand == int(grand) else grand }}
+        </td>
+        {% for code in towel_salons %}
+        {% set sal_total = sum([towel_matrix.get(i['product_name'], {}).get(code, 0) for i in towel_items]) %}
+        <td style="text-align:center; font-weight:700; color:#7B3FA0;">
+          {% if sal_total > 0 %}{{ int(sal_total) if sal_total == int(sal_total) else sal_total }}{% else %}–{% end %}
+        </td>
+        {% end %}
+      </tr>
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="padding:3rem; text-align:center; color:#7A6B8A;">
+    <p style="font-size:1rem;">No towel orders for this week.</p>
+  </div>
+  {% end %}
+</div>
+
+<!-- ══════════════════════════════════════════════
+     OUTSTANDING ITEMS (read-only)
+══════════════════════════════════════════════ -->
+<div id="panel-out" class="week-panel card"
+     style="display:none; border-radius:0 12px 12px 12px; padding:0; overflow:hidden;">
+  {% if outstanding %}
+
+  <!-- Header bar -->
+  <div style="padding:.85rem 1.4rem; border-bottom:1px solid var(--border);
+              display:flex; align-items:center; gap:.85rem; flex-wrap:wrap;
+              background:#FEF9E7;">
+    <span style="font-size:.82rem; color:#A04000; font-weight:600; flex:1;">
+      ⚠️ {{ len(outstanding) }} product{{ '' if len(outstanding) == 1 else 's' }} outstanding
+      &nbsp;·&nbsp;
+      <span style="color:#27AE60;">{{ len([i for i in outstanding if i['ordered']]) }} marked for order</span>
+    </span>
+    <div style="display:flex; gap:.45rem;">
+      <a href="/ho/week/{{ pack_date }}/print?type=outstanding" target="_blank"
+         style="text-decoration:none; padding:.3rem .8rem; border-radius:6px;
+                border:1.5px solid #F5B7B1; font-size:.78rem; color:#C0392B;
+                background:#fff; font-weight:600; white-space:nowrap;">
+        🖨️ Print
+      </a>
+      <a href="/ho/week/{{ pack_date }}/outstanding-word"
+         style="text-decoration:none; padding:.3rem .8rem; border-radius:6px;
+                border:1.5px solid #F5B7B1; font-size:.78rem; color:#C0392B;
+                background:#FDEBD0; font-weight:600; white-space:nowrap;">
+        ⬇️ Word
+      </a>
+    </div>
+  </div>
+
+  {% for cat in ['Salon','Cleaning','Perms','Tints','Retail'] %}
+    {% set cat_items = [item for item in outstanding if item['category'] == cat] %}
+    {% if cat_items %}
+    <div style="border-bottom:1px solid var(--border); padding:1rem 1.4rem;">
+      <h3 style="color:#C0392B; margin-bottom:.65rem; font-size:.88rem;
+                 text-transform:uppercase; letter-spacing:.05em;">{{ cat }}</h3>
+      <table class="table" style="width:100%; margin:0; border-collapse:collapse; table-layout:fixed;">
+        <colgroup>
+          <col style="width:34%">
+          <col style="width:10%">
+          <col style="width:12%">
+          <col style="width:27%">
+          <col style="width:17%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th style="text-align:center; color:#C0392B;">Needed</th>
+            <th style="text-align:center; color:#1565C0;">Order Qty</th>
+            <th>Notes</th>
+            <th style="text-align:center;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for item in cat_items %}
+        <tr style="{% if item['ordered'] %}background:#F0FBF4;{% end %}">
+          <td style="font-weight:600; color:{% if item['ordered'] %}#27AE60{% else %}#C0392B{% end %};
+                     word-break:break-word;">
+            {{ item['product_name'] }}
+          </td>
+          <td style="text-align:center; font-weight:800; color:#C0392B;">
+            {{ int(item['qty_needed']) if item['qty_needed'] == int(item['qty_needed']) else item['qty_needed'] }}
+          </td>
+          <td style="text-align:center; font-weight:700; color:#1565C0;">
+            {% if item['ordered'] %}
+            {{ int(item['qty_ordered']) if item['qty_ordered'] == int(item['qty_ordered']) else item['qty_ordered'] }}
+            {% else %}—{% end %}
+          </td>
+          <td style="font-size:.82rem; color:#7A6B8A; font-style:{% if item['notes'] %}italic{% else %}normal{% end %};">
+            {{ item['notes'] if item['notes'] else '—' }}
+          </td>
+          <td style="text-align:center;">
+            {% if item['ordered'] %}
+            <span class="badge-ord">✓ Ordered</span>
+            {% else %}
+            <span class="badge-pend">⏳ Pending</span>
+            {% end %}
+          </td>
+        </tr>
+        {% end %}
+        </tbody>
+      </table>
+    </div>
+    {% end %}
+  {% end %}
+
+  {% else %}
+  <div style="padding:3rem; text-align:center;">
+    <span style="font-size:2.5rem;">✅</span>
+    <p style="color:#27AE60; font-weight:700; margin-top:.6rem; font-size:1.05rem;">All packed!</p>
+    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.3rem;">No outstanding items.</p>
+  </div>
+  {% end %}
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SUPPLIER ORDER
+══════════════════════════════════════════════ -->
+<div id="panel-supplier" class="week-panel card"
+     style="display:none; border-radius:0 12px 12px 12px; padding:0; overflow:hidden;">
+
+  <!-- Header bar always visible -->
+  <div style="padding:.85rem 1.4rem; border-bottom:1px solid var(--border);
+              display:flex; align-items:center; gap:.85rem; flex-wrap:wrap;
+              background:#EBF5FB;">
+    <span style="font-size:.82rem; color:#1565C0; font-weight:600; flex:1;">
+      🛒 Order items grouped by supplier
+    </span>
+    <div style="margin-left:auto; display:flex; gap:.45rem; align-items:center;">
+      <a href="/ho/week/{{ pack_date }}/order-list" target="_blank"
+         style="text-decoration:none; padding:.3rem .8rem; border-radius:6px;
+                border:1.5px solid #90CAF9; font-size:.78rem; color:#1565C0;
+                background:#fff; font-weight:600; white-space:nowrap;">
+        🖨️ Print
+      </a>
+      <a href="/ho/week/{{ pack_date }}/order-list-word"
+         style="text-decoration:none; padding:.3rem .8rem; border-radius:6px;
+                border:1.5px solid #90CAF9; font-size:.78rem; color:#1565C0;
+                background:#E3F2FD; font-weight:600; white-space:nowrap;">
+        ⬇️ Word
+      </a>
+      <button type="button"
+              onclick="document.getElementById('supplierForm').submit()"
+              style="padding:.38rem 1rem; border-radius:6px; border:none;
+                     background:#1565C0; color:#fff; font-size:.82rem;
+                     font-weight:600; cursor:pointer; white-space:nowrap;">
+        💾 Save
+      </button>
+    </div>
+  </div>
+
+  <form method="POST" action="/ho/week/{{ pack_date }}/supplier-order" id="supplierForm">
+
+  {% if supplier_groups %}
+  {% for sup_name, sup_items in supplier_groups.items() %}
+  <div style="border-bottom:1px solid var(--border); padding:1rem 1.4rem;">
+    <h3 style="color:#1565C0; margin-bottom:.65rem; font-size:.88rem;
+               text-transform:uppercase; letter-spacing:.05em;">
+      🏢 {{ sup_name }}
+      <span style="background:#E3F2FD; color:#1565C0; border-radius:99px;
+                   padding:.1rem .55rem; font-size:.72rem; font-weight:600;
+                   text-transform:none; letter-spacing:0; margin-left:.5rem;">
+        {{ len(sup_items) }} item{{ 's' if len(sup_items) != 1 else '' }}
+      </span>
+    </h3>
+    <table class="table" style="width:100%; margin:0; border-collapse:collapse; table-layout:fixed;">
+      <colgroup>
+        <col style="width:33%">
+        <col style="width:10%">
+        <col style="width:11%">
+        <col style="width:41%">
+        <col style="width:5%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th style="text-align:center; color:#C0392B;">Needed</th>
+          <th style="text-align:center; color:#1565C0;">Order Qty</th>
+          <th>Notes</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in sup_items %}
+      {% set si = item['_sup_idx'] %}
+      {% set is_extra = item.get('qty_needed', 1) == 0 %}
+      <tr style="{% if is_extra %}background:#F0F7FF;{% end %}">
+        <td style="font-weight:600; color:#2C1A3E; word-break:break-word;">
+          <input type="hidden" name="pname_{{ si }}" value="{{ item['product_name'] }}">
+          {{ item['product_name'] }}
+          {% if is_extra %}
+          <span style="font-size:.68rem; background:#E3F2FD; color:#1565C0;
+                       border-radius:4px; padding:.05rem .35rem; margin-left:.3rem;
+                       font-weight:700; vertical-align:middle;">+EXTRA</span>
+          {% end %}
+          <span style="font-size:.7rem; color:#9B8CAE; margin-left:.25rem;">{{ item['category'] }}</span>
+        </td>
+        <td style="text-align:center; font-weight:800;
+                   color:{% if is_extra %}#9B8CAE{% else %}#C0392B{% end %};">
+          {% if is_extra %}—{% else %}
+          {{ int(item['qty_needed']) if item['qty_needed'] == int(item['qty_needed']) else item['qty_needed'] }}
+          {% end %}
+        </td>
+        <td style="text-align:center;">
+          <input type="number"
+                 name="qty_{{ si }}"
+                 value="{{ int(item['qty_ordered']) if item['qty_ordered'] == int(item['qty_ordered']) else item['qty_ordered'] }}"
+                 min="0" step="1"
+                 style="width:68px; padding:.28rem .35rem; border:1.5px solid #90CAF9;
+                        border-radius:6px; font-size:.875rem; font-weight:700;
+                        text-align:center; color:#1565C0;">
+        </td>
+        <td>
+          <input type="text"
+                 name="notes_{{ si }}"
+                 value="{{ item['notes'] }}"
+                 placeholder="notes..."
+                 style="width:100%; padding:.28rem .5rem; border:1.5px solid #90CAF9;
+                        border-radius:6px; font-size:.82rem; color:#2C1A3E;">
+        </td>
+        <td style="text-align:center; vertical-align:middle; padding:.28rem .1rem;">
+          {% if is_extra %}
+          <button type="button" onclick="deleteStaticExtra(this, {{ si }})"
+                  title="Verwyder"
+                  style="color:#C0392B; background:none; border:none; cursor:pointer;
+                         font-size:.95rem; font-weight:700; line-height:1; padding:0;">✕</button>
+          {% else %}
+          <button type="button" onclick="deleteOutstandingRow(this, {{ si }})"
+                  title="Verwyder uit bestelling"
+                  style="color:#C0392B; background:none; border:none; cursor:pointer;
+                         font-size:.95rem; font-weight:700; line-height:1; padding:0;">✕</button>
+          {% end %}
+        </td>
+      </tr>
+      {% end %}
+      </tbody>
+    </table>
+  </div>
+  {% end %}
+  {% else %}
+  <div style="padding:1.5rem 1.4rem; color:#7A6B8A; font-size:.875rem;">
+    No outstanding items — use "Add Product" below to add extra items to the order.
+  </div>
+  {% end %}
+
+  <!-- ── Add extra product ── -->
+  <div style="padding:1rem 1.4rem; background:#F0F7FF; border-top:2px dashed #90CAF9;">
+    <h4 style="color:#1565C0; margin-bottom:.65rem; font-size:.85rem; font-weight:700;">
+      ➕ Add Extra Product to Order
+    </h4>
+    <div style="display:flex; gap:.65rem; flex-wrap:wrap; align-items:flex-end;">
+      <div style="flex:2; min-width:200px;">
+        <label style="font-size:.75rem; color:#7A6B8A; display:block; margin-bottom:.2rem;">Search product</label>
+        <input list="allProdList" id="addProdSearch"
+               placeholder="Type to search..."
+               autocomplete="off"
+               style="width:100%; padding:.35rem .5rem; border:1.5px solid #90CAF9;
+                      border-radius:6px; font-size:.875rem; color:#2C1A3E;">
+        <datalist id="allProdList">
+          {% for prod in all_products %}
+          <option value="{{ prod }}">
+          {% end %}
+        </datalist>
+      </div>
+      <div style="width:80px;">
+        <label style="font-size:.75rem; color:#7A6B8A; display:block; margin-bottom:.2rem;">Qty</label>
+        <input type="number" id="addProdQty" value="1" min="1" step="1"
+               style="width:100%; padding:.35rem .35rem; border:1.5px solid #90CAF9;
+                      border-radius:6px; font-size:.875rem; text-align:center; color:#1565C0;
+                      font-weight:700;">
+      </div>
+      <div style="flex:1; min-width:150px;">
+        <label style="font-size:.75rem; color:#7A6B8A; display:block; margin-bottom:.2rem;">Notes</label>
+        <input type="text" id="addProdNotes" placeholder="optional..."
+               style="width:100%; padding:.35rem .5rem; border:1.5px solid #90CAF9;
+                      border-radius:6px; font-size:.875rem; color:#2C1A3E;">
+      </div>
+      <div>
+        <button type="button" onclick="addProductToOrder()"
+                style="padding:.38rem 1rem; background:#1565C0; color:#fff;
+                       border:none; border-radius:6px; font-size:.875rem;
+                       font-weight:700; cursor:pointer; white-space:nowrap;">
+          ➕ Add
+        </button>
+      </div>
+    </div>
+    <!-- Dynamic extra rows (new this session, not yet saved) -->
+    <div id="extraItemsSection" style="margin-top:.75rem; display:none;">
+      <table style="width:100%; border-collapse:collapse; font-size:.875rem;">
+        <thead>
+          <tr style="background:#DCEEFB;">
+            <th style="padding:.25rem .4rem; text-align:left; color:#1565C0; font-size:.78rem; font-weight:700;">Product (extra)</th>
+            <th style="padding:.25rem .4rem; text-align:center; color:#1565C0; font-size:.78rem; font-weight:700; width:80px;">Qty</th>
+            <th style="padding:.25rem .4rem; text-align:left; color:#7A6B8A; font-size:.78rem; font-weight:700;">Notes</th>
+            <th style="width:28px;"></th>
+          </tr>
+        </thead>
+        <tbody id="extraItemsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Add Tint to Order (HHB) ── -->
+  <div style="padding:1rem 1.4rem; background:#FCE4EC; border-top:2px dashed #F48FB1;">
+    <h4 style="color:#880E4F; margin-bottom:.75rem; font-size:.85rem; font-weight:700;">
+      🎨 Add Tint to Order <span style="font-size:.75rem; font-weight:400; color:#AD1457; margin-left:.4rem;">(HHB supplier)</span>
+    </h4>
+
+    <!-- Quick-add row -->
+    <div style="display:flex; gap:.65rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:.75rem;">
+      <div style="flex:2; min-width:120px;">
+        <label style="font-size:.75rem; color:#AD1457; display:block; margin-bottom:.2rem;">Tint kode</label>
+        <input type="text" id="tintSelect"
+               placeholder="bv. 8.00, 6N, 5/3..."
+               autocomplete="off"
+               style="width:100%; padding:.35rem .5rem; border:1.5px solid #F48FB1;
+                      border-radius:6px; font-size:.875rem; color:#2C1A3E; background:#fff;">
+      </div>
+      <div style="width:80px;">
+        <label style="font-size:.75rem; color:#AD1457; display:block; margin-bottom:.2rem;">Qty</label>
+        <input type="number" id="tintQty" value="1" min="1" step="1"
+               style="width:100%; padding:.35rem .35rem; border:1.5px solid #F48FB1;
+                      border-radius:6px; font-size:.875rem; text-align:center; color:#880E4F;
+                      font-weight:700;">
+      </div>
+      <div style="flex:3; min-width:150px;">
+        <label style="font-size:.75rem; color:#AD1457; display:block; margin-bottom:.2rem;">Notes (kleur, formule...)</label>
+        <input type="text" id="tintNotes" placeholder="bv. Naturtint 8N, 60ml..."
+               style="width:100%; padding:.35rem .5rem; border:1.5px solid #F48FB1;
+                      border-radius:6px; font-size:.875rem; color:#2C1A3E;">
+      </div>
+      <div style="flex-shrink:0;">
+        <button type="button" onclick="addTintToOrder()"
+                style="padding:.38rem 1.1rem; background:#880E4F; color:#fff;
+                       border:none; border-radius:6px; font-size:.875rem;
+                       font-weight:700; cursor:pointer; white-space:nowrap;">
+          ➕ Add Tint
+        </button>
+      </div>
+    </div>
+
+    <!-- Added tints table -->
+    <div id="tintItemsSection" style="display:none;">
+      <table style="width:100%; border-collapse:collapse; font-size:.875rem;">
+        <thead>
+          <tr style="background:#FCE4EC;">
+            <th style="padding:.25rem .4rem; text-align:left; color:#880E4F; font-size:.78rem; font-weight:700;">Tint (HHB)</th>
+            <th style="padding:.25rem .4rem; text-align:center; color:#880E4F; font-size:.78rem; font-weight:700; width:80px;">Qty</th>
+            <th style="padding:.25rem .4rem; text-align:left; color:#7A6B8A; font-size:.78rem; font-weight:700;">Notes</th>
+            <th style="width:28px;"></th>
+          </tr>
+        </thead>
+        <tbody id="tintItemsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <input type="hidden" id="formMaxIdx" name="max_idx" value="{{ total_sup_idx - 1 }}">
+  </form>
+</div>
+
+<div style="margin-top:1.5rem;">
+  <a href="/ho/dashboard" class="btn btn-secondary">← Back to Dashboard</a>
+</div>
+
+{% end %}
+{% block scripts %}
+<script>
+function showTab(name) {
+  document.querySelectorAll('.week-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.week-panel').forEach(p => p.style.display = 'none');
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('panel-' + name).style.display = 'block';
+}
+
+// Activate correct tab from URL hash (e.g. after Supplier Order save)
+(function() {
+  var h = window.location.hash.replace('#', '');
+  if (['tab-supplier','tab-out','tab-all','tab-towels'].includes(h)) {
+    showTab(h.replace('tab-', ''));
+  }
+})();
+
+// ── Supplier Order: add extra product rows dynamically ──
+let nextSupIdx = {{ total_sup_idx }};
+
+// Verander 'max_idx' sodat die bediener alle rye (ook met gapings) kan verwerk
+function bumpMaxIdx(idx) {
+  const inp = document.getElementById('formMaxIdx');
+  if (inp && idx > parseInt(inp.value || '0')) inp.value = idx;
+}
+
+// Verwyder 'n gestoorde +EXTRA ry (deaktiveer pname sodat dit nie gestuur word nie)
+function deleteStaticExtra(btn, idx) {
+  const row = btn.closest('tr');
+  const inp = row.querySelector('input[name="pname_' + idx + '"]');
+  if (inp) inp.removeAttribute('name');
+  row.style.opacity = '.3';
+  row.style.pointerEvents = 'none';
+  row.style.textDecoration = 'line-through';
+}
+
+// Verwyder 'n uitstaande item — stel qty na 0 sodat dit gestoor word as "nie bestel"
+// HOOrderListHandler sal dit dan oorslaaan op die druk-lys
+function deleteOutstandingRow(btn, idx) {
+  const row = btn.closest('tr');
+  const qtyInp = row.querySelector('input[name="qty_' + idx + '"]');
+  if (qtyInp) qtyInp.value = '0';
+  row.style.opacity = '.3';
+  row.style.pointerEvents = 'none';
+  row.style.textDecoration = 'line-through';
+  btn.disabled = true;
+}
+
+function addProductToOrder() {
+  const nameEl  = document.getElementById('addProdSearch');
+  const qtyEl   = document.getElementById('addProdQty');
+  const notesEl = document.getElementById('addProdNotes');
+  const name    = nameEl.value.trim();
+  const qty     = Math.max(1, parseInt(qtyEl.value) || 1);
+  const notes   = notesEl.value.trim();
+  if (!name) { nameEl.focus(); return; }
+
+  const tbody   = document.getElementById('extraItemsBody');
+  const section = document.getElementById('extraItemsSection');
+
+  const idx = nextSupIdx++;
+  bumpMaxIdx(idx);
+  const esc = s => s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+  const tr = document.createElement('tr');
+  tr.style.borderBottom = '1px solid #DCEEFB';
+  tr.innerHTML =
+    '<td style="padding:.28rem .4rem; font-weight:600;">' +
+      esc(name) +
+      '<input type="hidden" name="pname_' + idx + '" value="' + esc(name) + '">' +
+    '</td>' +
+    '<td style="text-align:center; padding:.28rem .4rem;">' +
+      '<input type="number" name="qty_' + idx + '" value="' + qty + '" min="1" step="1"' +
+             ' style="width:60px;text-align:center;border:1.5px solid #90CAF9;border-radius:5px;padding:.2rem .3rem;font-weight:700;color:#1565C0;">' +
+    '</td>' +
+    '<td style="padding:.28rem .4rem;">' +
+      '<input type="text" name="notes_' + idx + '" value="' + esc(notes) + '"' +
+             ' style="width:100%;border:1.5px solid #90CAF9;border-radius:5px;padding:.2rem .4rem;font-size:.82rem;">' +
+    '</td>' +
+    '<td style="text-align:center; padding:.28rem .2rem;">' +
+      '<button type="button" onclick="removeExtraRow(this)"' +
+              ' style="color:#C0392B;background:none;border:none;cursor:pointer;font-size:.95rem;font-weight:700;line-height:1;" title="Verwyder">✕</button>' +
+    '</td>';
+  tbody.appendChild(tr);
+  section.style.display = 'block';
+
+  nameEl.value  = '';
+  qtyEl.value   = '1';
+  notesEl.value = '';
+  nameEl.focus();
+}
+
+function removeExtraRow(btn) {
+  const row = btn.closest('tr');
+  // Deaktiveer pname sodat die bediener dit oorslaan (eerder as om 'n gaping te skep)
+  const inp = row.querySelector('input[type="hidden"]');
+  if (inp) inp.removeAttribute('name');
+  row.remove();
+  const tbody = document.getElementById('extraItemsBody');
+  if (!tbody.children.length)
+    document.getElementById('extraItemsSection').style.display = 'none';
+}
+
+// Druk Enter in tint-kode-veld om by te voeg
+document.addEventListener('DOMContentLoaded', function() {
+  const t = document.getElementById('tintSelect');
+  if (t) t.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); addTintToOrder(); }
+  });
+});
+
+// ── Add Tint to Order (HHB) ──
+function addTintToOrder() {
+  const selEl   = document.getElementById('tintSelect');
+  const qtyEl   = document.getElementById('tintQty');
+  const notesEl = document.getElementById('tintNotes');
+  const name    = selEl.value.trim();
+  const qty     = Math.max(1, parseInt(qtyEl.value) || 1);
+  const notes   = notesEl.value.trim();
+  if (!name) { selEl.focus(); return; }
+
+  const tbody   = document.getElementById('tintItemsBody');
+  const section = document.getElementById('tintItemsSection');
+  const esc = s => s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+  const idx = nextSupIdx++;
+  bumpMaxIdx(idx);
+  const tr = document.createElement('tr');
+  tr.style.borderBottom = '1px solid #FCE4EC';
+  tr.innerHTML =
+    '<td style="padding:.28rem .4rem; font-weight:600; color:#2C1A3E;">' +
+      esc(name) +
+      '<input type="hidden" name="pname_' + idx + '" value="' + esc(name) + '">' +
+      '<input type="hidden" name="cat_' + idx + '" value="Tints">' +
+    '</td>' +
+    '<td style="text-align:center; padding:.28rem .4rem;">' +
+      '<input type="number" name="qty_' + idx + '" value="' + qty + '" min="1" step="1"' +
+             ' style="width:60px;text-align:center;border:1.5px solid #F48FB1;border-radius:5px;padding:.2rem .3rem;font-weight:700;color:#880E4F;">' +
+    '</td>' +
+    '<td style="padding:.28rem .4rem;">' +
+      '<input type="text" name="notes_' + idx + '" value="' + esc(notes) + '"' +
+             ' style="width:100%;border:1.5px solid #F48FB1;border-radius:5px;padding:.2rem .4rem;font-size:.82rem;">' +
+    '</td>' +
+    '<td style="text-align:center; padding:.28rem .2rem;">' +
+      '<button type="button" onclick="removeTintRow(this)"' +
+              ' style="color:#C0392B;background:none;border:none;cursor:pointer;font-size:.95rem;font-weight:700;line-height:1;" title="Verwyder">✕</button>' +
+    '</td>';
+  tbody.appendChild(tr);
+  section.style.display = 'block';
+
+  selEl.value   = '';
+  qtyEl.value   = '1';
+  notesEl.value = '';
+  selEl.focus();
+}
+
+function removeTintRow(btn) {
+  const row = btn.closest('tr');
+  const inp = row.querySelector('input[type="hidden"]');
+  if (inp) inp.removeAttribute('name');
+  row.remove();
+  const tbody = document.getElementById('tintItemsBody');
+  if (!tbody.children.length)
+    document.getElementById('tintItemsSection').style.display = 'none';
+}
+</script>
+
+<style>
+.week-tab {
+  background: #EDE9F5;
+  border: 1px solid #D5C8E8;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  padding: .55rem 1.1rem;
+  font-size: .875rem;
+  font-weight: 600;
+  color: #7A6B8A;
+  cursor: pointer;
+  margin-right: .25rem;
+  transition: background .15s;
+}
+.week-tab.active {
+  background: #fff;
+  color: #3D1F5C;
+  border-color: #D5C8E8;
+}
+.week-tab:hover:not(.active) { background: #E0D6F0; }
+
+tr.out-ordered { background: #F0FBF4 !important; }
+tr.out-ordered td:first-child { border-left: 3px solid #27AE60; }
+
+.badge-ord {
+  display: inline-block; padding: .18rem .55rem; border-radius: 99px;
+  background: #D5F5E3; color: #1E8449; font-size: .72rem; font-weight: 800; white-space: nowrap;
+}
+.badge-pend {
+  display: inline-block; padding: .18rem .55rem; border-radius: 99px;
+  background: #FDEBD0; color: #A04000; font-size: .72rem; font-weight: 700; white-space: nowrap;
+}
+</style>
+{% end %}

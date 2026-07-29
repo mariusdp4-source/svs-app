@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In – SVS Stock</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    font-family: 'Segoe UI', Arial, sans-serif;
+  }
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #3D1F5C 0%, #7B3FA0 100%);
+    padding: 1rem;
+  }
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 2.5rem 2rem;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 16px 48px rgba(0,0,0,.4);
+  }
+  .logo-section {
+    text-align: center;
+    margin-bottom: 1.75rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid #D5C8E8;
+  }
+  .logo-section img { max-height: 200px; width: auto; margin-bottom: .75rem; }
+  .logo-section h1  { color: #3D1F5C; font-size: 1.35rem; margin-bottom: .2rem; }
+  .logo-section p   { color: #7A6B8A; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; }
+  .form-group  { margin-bottom: 1rem; }
+  label        { display: block; font-size: .85rem; font-weight: 600; color: #2C1A3E; margin-bottom: .35rem; }
+  input {
+    width: 100%; padding: .55rem .8rem;
+    border: 1.5px solid #D5C8E8; border-radius: 8px;
+    font-size: .95rem; color: #2C1A3E;
+    transition: border-color .15s, box-shadow .15s;
+    font-family: inherit;
+  }
+  input:focus { outline: none; border-color: #7B3FA0; box-shadow: 0 0 0 3px rgba(123,63,160,.15); }
+  .btn {
+    width: 100%; padding: .65rem;
+    background: #7B3FA0; color: #fff;
+    border: none; border-radius: 8px;
+    font-size: 1rem; font-weight: 600;
+    cursor: pointer; margin-top: .5rem;
+    transition: background .15s;
+    font-family: inherit;
+  }
+  .btn:hover { background: #3D1F5C; }
+  .error {
+    background: #FDE8E8; color: #C0392B;
+    border: 1px solid #F5B7B1;
+    border-radius: 8px; padding: .65rem .9rem;
+    font-size: .875rem; margin-bottom: 1rem;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-section">
+      <img src="/static/images/logo.png" alt="SVS" onerror="this.style.display='none'">
+      <h1>Silver Violet Studios</h1>
+      <p>Stock Portal</p>
+    </div>
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% end %}
+    <form method="POST" action="/login">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" required autofocus
+               placeholder="e.g. reception@BB or Marius@HO">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required>
+      </div>
+      <button type="submit" class="btn">Sign In</button>
+    </form>
+  </div>
+</body>
+</html>

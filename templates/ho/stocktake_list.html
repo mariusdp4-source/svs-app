@@ -1,0 +1,56 @@
+{% extends "../base.html" %}
+{% block title %}Stock Take{% end %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>📦 Stock Take</h2>
+    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem">
+      Record and save HO stock — Salon, Perms and Retail
+    </p>
+  </div>
+  <a href="/ho/stocktake/new" class="btn btn-primary">+ New Stock Take</a>
+</div>
+
+<div class="card">
+  {% if takes %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Taken By</th>
+        <th>Notes</th>
+        <th style="text-align:center">Items</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for t in takes %}
+    <tr>
+      <td style="font-weight:600; color:#3D1F5C;">{{ t['taken_at'] }}</td>
+      <td>{{ t['taken_by'] or '–' }}</td>
+      <td style="color:#7A6B8A; font-size:.88rem;">{{ t['notes'] or '–' }}</td>
+      <td style="text-align:center">
+        <span style="background:#EAE2F4; color:#3D1F5C; border-radius:12px;
+                     padding:.15rem .6rem; font-size:.85rem; font-weight:600;">
+          {{ t.get('item_count', '–') }}
+        </span>
+      </td>
+      <td style="text-align:right; white-space:nowrap;">
+        <a href="/ho/stocktake/{{ t['id'] }}" class="btn btn-sm btn-ghost">View</a>
+        <a href="/ho/stocktake/{{ t['id'] }}/xlsx" class="btn btn-sm btn-secondary">↓ Excel</a>
+        <a href="/ho/stocktake/{{ t['id'] }}/pdf" class="btn btn-sm btn-secondary">↓ PDF</a>
+      </td>
+    </tr>
+    {% end %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center; padding:3rem; color:#9B8CAE;">
+    <div style="font-size:3rem; margin-bottom:1rem;">📦</div>
+    <p style="font-size:1.1rem; font-weight:600; color:#7B3FA0;">No stock takes recorded yet</p>
+    <p style="margin-top:.5rem;">Click "New Stock Take" to get started.</p>
+    <a href="/ho/stocktake/new" class="btn btn-primary" style="margin-top:1rem;">+ New Stock Take</a>
+  </div>
+  {% end %}
+</div>
+{% end %}

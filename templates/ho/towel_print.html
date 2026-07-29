@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="af">
+<head>
+<meta charset="UTF-8">
+<title>SVS Towels – {{ pack_date }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #2C1A3E; background: #fff; padding: 1.5rem; }
+
+  .print-header {
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 3px solid #7B3FA0; padding-bottom: .75rem; margin-bottom: 1.25rem;
+  }
+  .print-header h1 { font-size: 1.5rem; color: #3D1F5C; }
+  .print-header .sub { font-size: .85rem; color: #7A6B8A; margin-top: .2rem; }
+  .print-header .date-badge {
+    background: #EDE0F8; color: #7B3FA0; font-weight: 700;
+    padding: .4rem 1rem; border-radius: 8px; font-size: .9rem;
+  }
+
+  .no-print { margin-bottom: 1.25rem; }
+  .btn-print {
+    padding: .5rem 1.25rem; background: #7B3FA0; color: #fff;
+    border: none; border-radius: 8px; font-size: .9rem; font-weight: 700;
+    cursor: pointer; margin-right: .5rem;
+  }
+  .btn-back {
+    padding: .5rem 1.25rem; background: #EDE0F8; color: #7B3FA0;
+    border: 1.5px solid #C39BD3; border-radius: 8px; font-size: .9rem;
+    font-weight: 600; text-decoration: none;
+  }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+  th {
+    background: #3D1F5C; color: #fff; padding: .5rem .75rem;
+    font-size: .82rem; text-align: center; font-weight: 700; letter-spacing: .04em;
+  }
+  th:first-child { text-align: left; min-width: 140px; }
+  td { padding: .45rem .75rem; border-bottom: 1px solid #E8E4EF; font-size: .9rem; text-align: center; }
+  td:first-child { text-align: left; font-weight: 700; color: #3D1F5C; }
+  tr:nth-child(even) td { background: #F8F3FD; }
+
+  .qty-cell { font-weight: 700; color: #7B3FA0; font-size: 1rem; }
+  .empty-cell { color: #C0C0C0; font-weight: 400; }
+
+  .total-row td {
+    background: #EDE0F8 !important; font-weight: 800;
+    color: #3D1F5C; border-top: 2px solid #C39BD3;
+    font-size: .92rem;
+  }
+  .total-row td.total-qty { color: #7B3FA0; font-size: 1.05rem; }
+
+  .summary { font-size: .82rem; color: #7A6B8A; margin-top: .75rem; }
+
+  @media print {
+    .no-print { display: none !important; }
+    body { padding: .5rem; }
+    .print-header { padding-bottom: .5rem; margin-bottom: .75rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="no-print">
+  <button class="btn-print" onclick="window.print()">🖨️ Print</button>
+  <a class="btn-back" href="javascript:history.back()">← Back</a>
+</div>
+
+<div class="print-header">
+  <div>
+    <h1>🧺 SVS Towels</h1>
+    <div class="sub">Silver Violet Studios &nbsp;·&nbsp; {{ pack_date }} – {{ week_friday }}</div>
+  </div>
+  <div class="date-badge">Week {{ pack_date }}</div>
+</div>
+
+{% if not towel_types %}
+<p style="color:#7A6B8A; font-size:.9rem; margin-top:1rem;">No towel orders for this week.</p>
+{% else %}
+
+<table>
+  <thead>
+    <tr>
+      <th>Towel Type</th>
+      <th style="background:#7B3FA0;">Total</th>
+      {% for code in towel_salons %}
+      <th>{{ code }}</th>
+      {% end %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for tt in towel_types %}
+  {% set row_data = towel_matrix.get(tt, {}) %}
+  {% set row_total = sum(row_data.values()) %}
+  <tr>
+    <td>{{ tt }}</td>
+    <td class="qty-cell">{{ int(row_total) if row_total == int(row_total) else row_total }}</td>
+    {% for code in towel_salons %}
+    {% set qty = row_data.get(code, 0) %}
+    <td {% if qty > 0 %}class="qty-cell"{% else %}class="empty-cell"{% end %}>
+      {% if qty > 0 %}{{ int(qty) if qty == int(qty) else qty }}{% else %}–{% end %}
+    </td>
+    {% end %}
+  </tr>
+  {% end %}
+  <!-- Totals row -->
+  {% set grand_total = sum([sum(towel_matrix.get(tt, {}).values()) for tt in towel_types]) %}
+  <tr class="total-row">
+    <td>TOTAL</td>
+    <td class="total-qty">{{ int(grand_total) if grand_total == int(grand_total) else grand_total }}</td>
+    {% for code in towel_salons %}
+    {% set sal_total = sum([towel_matrix.get(tt, {}).get(code, 0) for tt in towel_types]) %}
+    <td {% if sal_total > 0 %}class="total-qty"{% end %}>
+      {% if sal_total > 0 %}{{ int(sal_total) if sal_total == int(sal_total) else sal_total }}{% else %}–{% end %}
+    </td>
+    {% end %}
+  </tr>
+  </tbody>
+</table>
+
+<div class="summary">
+  {{ len(towel_types) }} towel type{{ 's' if len(towel_types) != 1 else '' }}
+  &nbsp;·&nbsp;
+  {{ len(towel_salons) }} salon{{ 's' if len(towel_salons) != 1 else '' }}
+  &nbsp;·&nbsp;
+  {{ int(grand_total) if grand_total == int(grand_total) else grand_total }} towels total
+</div>
+{% end %}
+
+</body>
+</html>

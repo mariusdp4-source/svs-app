@@ -1,0 +1,25 @@
+# Databasis — moet NOOIT op GitHub beland nie
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Omgewing
+.env
+.venv
+venv/
+env/
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Tydelike lêers
+*.tmp
+*.log
