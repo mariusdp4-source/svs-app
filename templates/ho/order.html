@@ -21,11 +21,23 @@
 </div>
 
 {% if is_delivered %}
+{% set outstanding_items = [i for i in items if i['category'] != 'Handoeke' and float(i.get('quantity') or 0) > float(i.get('delivered_qty') or 0)] %}
 <div class="card" style="margin-bottom:1.25rem; padding:.9rem 1.5rem;
                           border-left:4px solid #9B59B6; background:#F5EEF8;">
-  <p style="margin:0; font-weight:700; color:#6C3483; font-size:.9rem;">
-    🚚 Hierdie bestelling is afgelewer — geen wysigings moontlik nie.
-  </p>
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem;">
+    <p style="margin:0; font-weight:700; color:#6C3483; font-size:.9rem;">
+      🚚 Hierdie bestelling is afgelewer — geen wysigings moontlik nie.
+    </p>
+    {% if outstanding_items %}
+    <form method="POST" action="/ho/order/{{ order['id'] }}/fulfill-outstanding"
+          onsubmit="return confirm('Merk al die uitstaande items vir {{ order['salon_code'] }} as volledig afgelewer?')">
+      <button type="submit" style="background:#27AE60; color:#fff; border:none; border-radius:8px;
+                                   padding:.45rem 1rem; font-size:.85rem; font-weight:600; cursor:pointer;">
+        ✅ Merk Uitstaande as Afgelewer ({{ outstanding_items|length }} items)
+      </button>
+    </form>
+    {% end %}
+  </div>
 </div>
 {% end %}
 

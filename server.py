@@ -766,6 +766,29 @@ class HOOrderPackItemsHandler(BaseHandler):
         db.close()
         self.redirect(f'/ho/week/{pack_date}')
 
+class HOFulfillOutstandingHandler(BaseHandler):
+    """Merk alle uitstaande items in 'n afgelewerde bestelling as volledig afgelewer."""
+    @tornado.web.authenticated
+    def post(self, order_id):
+        u = self.current_user
+        if u['role'] != 'ho_admin':
+            self.redirect('/salon/dashboard'); return
+        db = get_db()
+        order = db.execute(
+            "SELECT * FROM stock_orders WHERE id=? AND status='delivered'", (order_id,)
+        ).fetchone()
+        if order:
+            db.execute("""
+                UPDATE order_items
+                SET delivered_qty = quantity
+                WHERE order_id=? AND category != 'Handoeke'
+                  AND COALESCE(delivered_qty, 0) < quantity
+            """, (order_id,))
+            db.commit()
+        db.close()
+        self.redirect(f'/ho/order/{order_id}')
+
+
 class HOOrderEditHandler(BaseHandler):
     """Laat HO toe om 'n teruggesette (konsep) bestelling te redigeer en direk te herindien."""
     @tornado.web.authenticated
@@ -3378,9 +3401,10 @@ def make_app():
             (r'/ho/week/([0-9-]+)/supplier-order',  HOSupplierOrderSaveHandler),
             (r'/ho/week/([0-9-]+)/towels-print',    HOTowelPrintHandler),
             (r'/ho/week/([0-9-]+)/towels-word',     HOTowelWordHandler),
-            (r'/ho/order/(\d+)/edit',           HOOrderEditHandler),
-            (r'/ho/order/(\d+)',                HOOrderViewHandler),
-            (r'/ho/order/(\d+)/pack-items',     HOOrderPackItemsHandler),
+            (r'/ho/order/(\d+)/edit',                   HOOrderEditHandler),
+            (r'/ho/order/(\d+)/fulfill-outstanding',    HOFulfillOutstandingHandler),
+            (r'/ho/order/(\d+)',                        HOOrderViewHandler),
+            (r'/ho/order/(\d+)/pack-items',             HOOrderPackItemsHandler),
             (r'/ho/products',                   AdminProductsHandler),
             (r'/ho/products/cleanup',           AdminProductCleanupHandler),
             (r'/ho/products/(\d+)/toggle',      AdminProductToggleHandler),
