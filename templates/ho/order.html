@@ -43,7 +43,7 @@
 
 <!-- Progress bar -->
 {% set pct = int(packed_count * 100 / total) if total > 0 else 0 %}
-{% set unpacked_items = [i for i in items if not i['packed'] and i['category'] != 'Handoeke'] %}
+{% set unpacked_items = [i for i in items if i['category'] != 'Handoeke' and (not i['packed'] or float(i.get('packed_qty') or 0) < float(i['quantity']))] %}
 <div class="card" style="margin-bottom:1.25rem; padding:1rem 1.5rem;">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
     <span style="font-weight:600; color:#3D1F5C;">Packing Progress</span>

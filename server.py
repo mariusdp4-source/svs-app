@@ -89,7 +89,7 @@ class LoginHandler(BaseHandler):
         username = self.get_argument('username', '').strip()
         password = self.get_argument('password', '').strip()
         db = get_db()
-        user = db.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+        user = db.execute("SELECT * FROM users WHERE LOWER(username)=LOWER(?)", (username,)).fetchone()
         db.close()
         if user and check_password(user['password_hash'], password):
             self.set_secure_cookie('svs_user', str(user['id']), expires_days=7)
@@ -706,7 +706,8 @@ class HOOrderViewHandler(BaseHandler):
         ).fetchall()
         db.close()
         total  = sum(1 for i in items if i['category'] != 'Handoeke')
-        packed = sum(1 for i in items if i['packed'] and i['category'] != 'Handoeke')
+        packed = sum(1 for i in items if i['packed'] and i['category'] != 'Handoeke'
+                     and float(i['packed_qty'] or 0) >= float(i['quantity']))
         self.render('ho/order.html', user=u,
                     order=dict(order), items=[dict(i) for i in items],
                     total=total, packed_count=packed)
