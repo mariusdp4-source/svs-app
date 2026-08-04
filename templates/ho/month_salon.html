@@ -44,10 +44,9 @@ th, td { white-space: nowrap; }
       <div style="font-size:.85rem; color:#7A6B8A; margin-top:.15rem;">
         {{ month_label }} &nbsp;·&nbsp;
         {{ len(dates) }} delivery run{{ '' if len(dates) == 1 else 's' }}:
-        {% for idx, lbl in enumerate(date_labels) %}
-          <strong>{{ lbl }}</strong>{% if idx < len(date_labels)-1 %}, {% end %}
+        {% for idx, info in enumerate(date_info) %}
+          <strong>{{ info['label'] }}</strong>{% if info['signed_by'] %} — signed by {{ info['signed_by'] }}{% end %}{% if idx < len(date_info)-1 %} &nbsp;·&nbsp; {% end %}
         {% end %}
-        {% for o in orders %}{% if o['signed_by'] %} — signed by {{ o['signed_by'] }}{% end %}{% end %}
       </div>
     </div>
     <div style="text-align:right;">
@@ -65,7 +64,12 @@ th, td { white-space: nowrap; }
     <span style="font-size:.8rem; color:#7A6B8A; font-weight:600;">{{ cat['total'] }} items</span>
   </div>
   <div style="overflow-x:auto;">
-    <table class="table" style="margin:0; font-size:.875rem; min-width:100%;">
+    <table class="table" style="margin:0; font-size:.875rem; width:100%; table-layout:fixed;">
+      <colgroup>
+        <col>
+        {% for _ in date_labels %}<col style="width:90px;">{% end %}
+        <col style="width:80px;">
+      </colgroup>
       <thead>
         <tr>
           <th style="text-align:left;">Product</th>

@@ -3474,12 +3474,15 @@ class HOMonthSalonHandler(BaseHandler):
         # Delivery dates in order (short label e.g. "14 Jul")
         dates = []
         date_labels = []
+        date_info = []  # {date, label, signed_by}
         for o in orders:
             d = (o['delivered_at'] or o['pack_date'])[:10]
             if d not in dates:
                 dates.append(d)
                 dt = datetime.date.fromisoformat(d)
-                date_labels.append(f"{dt.day} {MAANDE[dt.month-1]}")
+                lbl = f"{dt.day} {MAANDE[dt.month-1]}"
+                date_labels.append(lbl)
+                date_info.append({'date': d, 'label': lbl, 'signed_by': o['signed_by'] or ''})
 
         # Aggregate qty per (category, product) per date
         product_data = {}  # (cat, name) -> {date: qty}
@@ -3525,7 +3528,7 @@ class HOMonthSalonHandler(BaseHandler):
         db.close()
         self.render('ho/month_salon.html', user=u,
                     salon_code=salon_code, salon_name=salon_name,
-                    dates=dates, date_labels=date_labels,
+                    dates=dates, date_labels=date_labels, date_info=date_info,
                     categories=categories, grand_total=grand_total,
                     orders=[dict(o) for o in orders],
                     year=year, month=month, month_label=month_label)
