@@ -1,0 +1,112 @@
+{% extends "../base.html" %}
+{% block title %}Billing – {{ salon_code }} – {{ month_label }}{% end %}
+{% block content %}
+
+<!-- Print styles -->
+<style>
+@media print {
+  .app-header, .app-footer, .no-print { display: none !important; }
+  .main-content { padding: 0 !important; margin: 0 !important; }
+  .card { box-shadow: none !important; border: 1px solid #ddd !important; break-inside: avoid; }
+  body { font-size: 11pt; }
+  .print-header { display: block !important; }
+}
+.print-header { display: none; }
+</style>
+
+<!-- Print-only header -->
+<div class="print-header" style="text-align:center; margin-bottom:1.5rem; padding-bottom:1rem; border-bottom:2px solid #3D1F5C;">
+  <img src="/static/images/logo.png" alt="SVS" style="height:60px; margin-bottom:.5rem;">
+  <div style="font-size:1.4rem; font-weight:800; color:#3D1F5C;">Silver Violet Studios</div>
+  <div style="font-size:1rem; color:#7A6B8A;">Monthly Delivery Statement</div>
+</div>
+
+<!-- Page header -->
+<div class="page-header no-print">
+  <div>
+    <h2>📋 {{ salon_name }} ({{ salon_code }}) — {{ month_label }}</h2>
+    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem">
+      All items delivered during {{ month_label }}.
+    </p>
+  </div>
+  <div style="display:flex; gap:.5rem;">
+    <a href="/ho/month/{{ year }}/{{ '%02d' % month }}" class="btn btn-secondary no-print">← Back</a>
+    <button onclick="window.print()" class="btn btn-primary no-print">🖨 Print</button>
+  </div>
+</div>
+
+<!-- Summary header (visible on print) -->
+<div class="card" style="margin-bottom:1.25rem; padding:1rem 1.5rem; border-left:4px solid #7B3FA0;">
+  <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:.75rem; align-items:center;">
+    <div>
+      <div style="font-size:1.1rem; font-weight:800; color:#3D1F5C;">
+        {{ salon_name }} ({{ salon_code }})
+      </div>
+      <div style="font-size:.85rem; color:#7A6B8A; margin-top:.2rem;">
+        {{ month_label }} — {{ len(orders) }} delivery{{ '' if len(orders) == 1 else ' runs' }}
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:1.8rem; font-weight:800; color:#7B3FA0;">
+        {{ int(grand_total) if grand_total == int(grand_total) else grand_total }}
+      </div>
+      <div style="font-size:.75rem; color:#7A6B8A;">total items delivered</div>
+    </div>
+  </div>
+
+  <!-- Delivery dates -->
+  <div style="margin-top:.75rem; display:flex; flex-wrap:wrap; gap:.4rem;">
+    {% for o in orders %}
+    <span style="background:#EDE9F5; color:#3D1F5C; font-size:.78rem; font-weight:600;
+                 padding:.2rem .65rem; border-radius:99px;">
+      🚚 {{ o['delivered_at'][:10] if o['delivered_at'] else o['pack_date'] }}
+      {% if o['signed_by'] %} — {{ o['signed_by'] }}{% end %}
+    </span>
+    {% end %}
+  </div>
+</div>
+
+<!-- Items per category -->
+{% for cat in categories %}
+<div class="card" style="margin-bottom:1rem; padding:1.1rem 1.5rem;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.6rem;">
+    <h3 style="color:#3D1F5C; margin:0; font-size:.95rem;">{{ cat['name'] }}</h3>
+    <span style="font-size:.8rem; color:#7A6B8A; font-weight:600;">
+      {{ cat['total'] }} item{{ '' if cat['total'] == 1 else 's' }}
+    </span>
+  </div>
+  <table class="table" style="margin:0; font-size:.875rem;">
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th style="text-align:right; color:#27AE60;">Qty Delivered</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for item in cat['items'] %}
+    <tr>
+      <td style="color:#2C1A3E;">{{ item['product_name'] }}</td>
+      <td style="text-align:right; font-weight:700; color:#27AE60; font-size:.95rem;">
+        {{ item['qty'] }}
+      </td>
+    </tr>
+    {% end %}
+    </tbody>
+  </table>
+</div>
+{% end %}
+
+<!-- Grand total -->
+<div class="card" style="border:2px solid #7B3FA0; padding:1rem 1.5rem;">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <span style="font-size:1rem; font-weight:700; color:#3D1F5C;">Grand Total — {{ month_label }}</span>
+    <span style="font-size:1.4rem; font-weight:800; color:#7B3FA0;">
+      {{ int(grand_total) if grand_total == int(grand_total) else grand_total }} items
+    </span>
+  </div>
+  <div style="font-size:.78rem; color:#7A6B8A; margin-top:.35rem;">
+    Delivered to {{ salon_name }} across {{ len(orders) }} delivery{{ '' if len(orders) == 1 else ' runs' }} in {{ month_label }}.
+  </div>
+</div>
+
+{% end %}

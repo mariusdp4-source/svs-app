@@ -1,0 +1,52 @@
+{% extends "../base.html" %}
+{% block title %}Billing – Monthly Delivery Summary{% end %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h2>📅 Billing – Monthly Delivery Summary</h2>
+    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem">
+      Stock delivered per salon per month. Click a month to see the breakdown.
+    </p>
+  </div>
+</div>
+
+<div class="card">
+  {% if months %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Month</th>
+        <th style="text-align:center;">Salons Delivered</th>
+        <th style="text-align:center;">Orders</th>
+        <th style="text-align:right;"></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for m in months %}
+    <tr>
+      <td style="font-weight:700; font-size:1rem; color:#3D1F5C;">
+        📅 {{ m['label'] }}
+      </td>
+      <td style="text-align:center; color:#7A6B8A;">
+        {{ m['salon_count'] }} salon{{ '' if m['salon_count'] == 1 else 's' }}
+      </td>
+      <td style="text-align:center; color:#7A6B8A;">
+        {{ m['order_count'] }}
+      </td>
+      <td style="text-align:right;">
+        <a href="/ho/month/{{ m['year'] }}/{{ '%02d' % m['month'] }}"
+           class="btn btn-sm btn-primary">
+          View →
+        </a>
+      </td>
+    </tr>
+    {% end %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="text-muted" style="padding:1rem;">No delivered orders yet.</p>
+  {% end %}
+</div>
+
+{% end %}

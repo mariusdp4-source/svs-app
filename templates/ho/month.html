@@ -1,0 +1,55 @@
+{% extends "../base.html" %}
+{% block title %}Billing – {{ month_label }}{% end %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h2>📅 {{ month_label }}</h2>
+    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem">
+      Delivered stock per salon. Click a salon to view and print the full summary.
+    </p>
+  </div>
+  <a href="/ho/months" class="btn btn-secondary">← All Months</a>
+</div>
+
+{% if salons %}
+<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
+  {% for s in salons %}
+  <div class="card" style="padding:1.25rem 1.4rem; border-left:4px solid #7B3FA0;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:.75rem;">
+      <div>
+        <div style="font-size:1.2rem; font-weight:800; color:#3D1F5C;">{{ s['salon_code'] }}</div>
+        <div style="font-size:.85rem; color:#7A6B8A;">{{ s['salon_name'] }}</div>
+      </div>
+      <span style="background:#EDE9F5; color:#7B3FA0; font-size:.75rem; font-weight:700;
+                   padding:.2rem .65rem; border-radius:99px;">
+        {{ s['order_count'] }} order{{ '' if s['order_count'] == 1 else 's' }}
+      </span>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <div style="font-size:1.6rem; font-weight:800; color:#3D1F5C;">
+          {{ int(s['total_qty']) if s['total_qty'] == int(s['total_qty']) else s['total_qty'] }}
+        </div>
+        <div style="font-size:.75rem; color:#7A6B8A;">items delivered</div>
+        {% if s['last_delivery'] %}
+        <div style="font-size:.72rem; color:#9B8CAE; margin-top:.25rem;">
+          Last: {{ s['last_delivery'] }}
+        </div>
+        {% end %}
+      </div>
+      <a href="/ho/month/{{ year }}/{{ '%02d' % month }}/salon/{{ s['salon_code'] }}"
+         class="btn btn-primary" style="font-size:.85rem; padding:.45rem 1rem;">
+        View & Print →
+      </a>
+    </div>
+  </div>
+  {% end %}
+</div>
+{% else %}
+<div class="card">
+  <p class="text-muted">No delivered orders for {{ month_label }}.</p>
+</div>
+{% end %}
+
+{% end %}

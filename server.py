@@ -42,7 +42,8 @@ def week_friday(wednesday_str):
     d = datetime.date.fromisoformat(str(wednesday_str)[:10])
     return (d + datetime.timedelta(days=7)).isoformat()
 
-MAANDE = ['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Des']
+MAANDE = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
 def fmt_date(date_str):
     """Formateer 'YYYY-MM-DD' as '14 Jul 2026'."""
@@ -3370,6 +3371,143 @@ class HOStockTakePdfHandler(BaseHandler):
         self.write(data)
 
 
+# ─── Billing / Month Handlers ─────────────────────────────────────────────────
+
+class HOMonthListHandler(BaseHandler):
+    @tornado.web.authenticated
+    def get(self):
+        u = self.current_user
+        if u['role'] != 'ho_admin':
+            self.redirect('/salon/dashboard'); return
+        db = get_db()
+        rows = db.execute("""
+            SELECT strftime('%Y', delivered_at) as year,
+                   strftime('%m', delivered_at) as month,
+                   COUNT(DISTINCT salon_id) as salon_count,
+                   COUNT(*) as order_count
+            FROM stock_orders
+            WHERE status='delivered' AND delivered_at IS NOT NULL
+            GROUP BY year, month
+            ORDER BY year DESC, month DESC
+        """).fetchall()
+        db.close()
+        months = []
+        for r in rows:
+            y, m = int(r['year']), int(r['month'])
+            months.append({
+                'year': y, 'month': m,
+                'label': f"{MONTHS_FULL[m-1]} {y}",
+                'salon_count': r['salon_count'],
+                'order_count': r['order_count'],
+            })
+        self.render('ho/months.html', user=u, months=months)
+
+
+class HOMonthHandler(BaseHandler):
+    @tornado.web.authenticated
+    def get(self, year, month):
+        u = self.current_user
+        if u['role'] != 'ho_admin':
+            self.redirect('/salon/dashboard'); return
+        db = get_db()
+        year, month = int(year), int(month)
+        month_str = f"{year}-{month:02d}"
+        orders = db.execute("""
+            SELECT o.id, o.salon_id, o.delivered_at, o.signed_by, o.pack_date,
+                   s.code as salon_code, s.name as salon_name
+            FROM stock_orders o
+            JOIN salons s ON o.salon_id = s.id
+            WHERE o.status='delivered'
+              AND strftime('%Y-%m', o.delivered_at) = ?
+            ORDER BY s.code, o.delivered_at
+        """, (month_str,)).fetchall()
+        salon_summaries = {}
+        for o in orders:
+            code = o['salon_code']
+            if code not in salon_summaries:
+                salon_summaries[code] = {
+                    'salon_code': code,
+                    'salon_name': o['salon_name'],
+                    'order_count': 0,
+                    'total_qty': 0,
+                    'last_delivery': None,
+                }
+            salon_summaries[code]['order_count'] += 1
+            if o['delivered_at']:
+                salon_summaries[code]['last_delivery'] = o['delivered_at'][:10]
+            items = db.execute("""
+                SELECT COALESCE(delivered_qty, quantity) as del_qty
+                FROM order_items
+                WHERE order_id=? AND category != 'Handoeke'
+                  AND COALESCE(delivered_qty, 0) > 0
+            """, (o['id'],)).fetchall()
+            salon_summaries[code]['total_qty'] += sum(float(i['del_qty']) for i in items)
+        db.close()
+        salons = sorted(salon_summaries.values(), key=lambda x: x['salon_code'])
+        month_label = f"{MONTHS_FULL[month-1]} {year}"
+        self.render('ho/month.html', user=u, salons=salons,
+                    year=year, month=month, month_label=month_label)
+
+
+class HOMonthSalonHandler(BaseHandler):
+    @tornado.web.authenticated
+    def get(self, year, month, salon_code):
+        u = self.current_user
+        if u['role'] != 'ho_admin':
+            self.redirect('/salon/dashboard'); return
+        db = get_db()
+        year, month = int(year), int(month)
+        month_str = f"{year}-{month:02d}"
+        orders = db.execute("""
+            SELECT o.id, o.delivered_at, o.signed_by, o.pack_date,
+                   s.code as salon_code, s.name as salon_name
+            FROM stock_orders o
+            JOIN salons s ON o.salon_id = s.id
+            WHERE o.status='delivered'
+              AND strftime('%Y-%m', o.delivered_at) = ?
+              AND s.code = ?
+            ORDER BY o.delivered_at
+        """, (month_str, salon_code)).fetchall()
+        if not orders:
+            self.redirect(f'/ho/month/{year}/{month:02d}'); return
+        salon_name = orders[0]['salon_name']
+        items_by_cat = {}
+        for o in orders:
+            rows = db.execute("""
+                SELECT product_name, category,
+                       COALESCE(delivered_qty, quantity) as del_qty
+                FROM order_items
+                WHERE order_id=? AND category != 'Handoeke'
+                  AND COALESCE(delivered_qty, 0) > 0
+                ORDER BY category, product_name
+            """, (o['id'],)).fetchall()
+            for row in rows:
+                cat = row['category']
+                name = row['product_name']
+                if cat not in items_by_cat:
+                    items_by_cat[cat] = {}
+                items_by_cat[cat][name] = items_by_cat[cat].get(name, 0) + float(row['del_qty'])
+        cat_order = ['Salon', 'Cleaning', 'Perms', 'Tints', 'Retail']
+        categories = []
+        for cat in cat_order:
+            if cat in items_by_cat:
+                cat_items = sorted(items_by_cat[cat].items())
+                total = sum(q for _, q in cat_items)
+                categories.append({
+                    'name': cat,
+                    'items': [{'product_name': n, 'qty': int(q) if q == int(q) else q} for n, q in cat_items],
+                    'total': int(total) if total == int(total) else total,
+                })
+        grand_total = sum(cat['total'] for cat in categories)
+        month_label = f"{MONTHS_FULL[month-1]} {year}"
+        db.close()
+        self.render('ho/month_salon.html', user=u,
+                    salon_code=salon_code, salon_name=salon_name,
+                    orders=[dict(o) for o in orders], categories=categories,
+                    grand_total=grand_total,
+                    year=year, month=month, month_label=month_label)
+
+
 # ─── App ──────────────────────────────────────────────────────────────────────
 
 def make_app():
@@ -3411,6 +3549,9 @@ def make_app():
             (r'/ho/products/(\d+)/toggle',      AdminProductToggleHandler),
             (r'/ho/products/(\d+)/edit',        AdminProductEditHandler),
             (r'/ho/products/(\d+)/delete',      AdminProductDeleteHandler),
+            (r'/ho/months',                      HOMonthListHandler),
+            (r'/ho/month/(\d+)/(\d+)/salon/([A-Za-z0-9]+)', HOMonthSalonHandler),
+            (r'/ho/month/(\d+)/(\d+)',           HOMonthHandler),
             (r'/ho/stocktake',                  HOStockTakeListHandler),
             (r'/ho/stocktake/new',              HOStockTakeNewHandler),
             (r'/ho/stocktake/(\d+)/xlsx',       HOStockTakeXlsxHandler),
