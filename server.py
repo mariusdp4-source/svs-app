@@ -3523,14 +3523,86 @@ class HOMonthSalonHandler(BaseHandler):
                     'total': int(cat_total) if cat_total == int(cat_total) else cat_total,
                 })
 
-        grand_total = int(grand_total) if grand_total == int(grand_total) else grand_total
+        grand_total_v = int(grand_total) if grand_total == int(grand_total) else grand_total
         month_label = f"{MONTHS_FULL[month-1]} {year}"
         db.close()
         self.render('ho/month_salon.html', user=u,
                     salon_code=salon_code, salon_name=salon_name,
                     dates=dates, date_labels=date_labels, date_info=date_info,
-                    categories=categories, grand_total=grand_total,
+                    categories=categories, grand_total=grand_total_v,
                     orders=[dict(o) for o in orders],
+                    year=year, month=month, month_label=month_label)
+
+
+class HOMonthCombinedHandler(BaseHandler):
+    @tornado.web.authenticated
+    def get(self, year, month):
+        u = self.current_user
+        if u['role'] != 'ho_admin':
+            self.redirect('/salon/dashboard'); return
+        db = get_db()
+        year, month = int(year), int(month)
+        month_str = f"{year}-{month:02d}"
+        # All delivered order_items for this month (excl. towels)
+        rows = db.execute("""
+            SELECT oi.product_name, oi.category,
+                   COALESCE(oi.delivered_qty, oi.quantity) as del_qty,
+                   s.code as salon_code
+            FROM order_items oi
+            JOIN stock_orders o ON oi.order_id = o.id
+            JOIN salons s ON o.salon_id = s.id
+            WHERE o.status = 'delivered'
+              AND strftime('%Y-%m', o.delivered_at) = ?
+              AND oi.category != 'Handoeke'
+              AND COALESCE(oi.delivered_qty, 0) > 0
+            ORDER BY oi.category, oi.product_name, s.code
+        """, (month_str,)).fetchall()
+        db.close()
+
+        from collections import OrderedDict
+        agg = OrderedDict()
+        for row in rows:
+            key = (row['category'], row['product_name'])
+            if key not in agg:
+                agg[key] = {
+                    'category': row['category'],
+                    'product_name': row['product_name'],
+                    'total_qty': 0,
+                    'salons': []
+                }
+            qty = float(row['del_qty'])
+            agg[key]['total_qty'] += qty
+            existing = next((s for s in agg[key]['salons'] if s['code'] == row['salon_code']), None)
+            if existing:
+                existing['qty'] += qty
+            else:
+                agg[key]['salons'].append({'code': row['salon_code'], 'qty': qty})
+
+        cat_order = ['Salon', 'Cleaning', 'Perms', 'Tints', 'Retail']
+        categories = []
+        grand_total = 0
+        for cat in cat_order:
+            cat_items = [v for k, v in agg.items() if k[0] == cat]
+            if not cat_items:
+                continue
+            for item in cat_items:
+                t = item['total_qty']
+                item['total_qty'] = int(t) if t == int(t) else t
+                for s in item['salons']:
+                    q = s['qty']
+                    s['qty'] = int(q) if q == int(q) else q
+                grand_total += item['total_qty']
+            cat_total = sum(i['total_qty'] for i in cat_items)
+            categories.append({
+                'name': cat,
+                'items': cat_items,
+                'total': int(cat_total) if cat_total == int(cat_total) else cat_total,
+            })
+
+        grand_total = int(grand_total) if grand_total == int(grand_total) else grand_total
+        month_label = f"{MONTHS_FULL[month-1]} {year}"
+        self.render('ho/month_combined.html', user=u,
+                    categories=categories, grand_total=grand_total,
                     year=year, month=month, month_label=month_label)
 
 
@@ -3576,6 +3648,7 @@ def make_app():
             (r'/ho/products/(\d+)/edit',        AdminProductEditHandler),
             (r'/ho/products/(\d+)/delete',      AdminProductDeleteHandler),
             (r'/ho/months',                      HOMonthListHandler),
+            (r'/ho/month/(\d+)/(\d+)/combined',  HOMonthCombinedHandler),
             (r'/ho/month/(\d+)/(\d+)/salon/([A-Za-z0-9]+)', HOMonthSalonHandler),
             (r'/ho/month/(\d+)/(\d+)',           HOMonthHandler),
             (r'/ho/stocktake',                  HOStockTakeListHandler),

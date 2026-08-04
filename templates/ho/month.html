@@ -9,7 +9,11 @@
       Delivered stock per salon. Click a salon to view and print the full summary.
     </p>
   </div>
-  <a href="/ho/months" class="btn btn-secondary">← All Months</a>
+  <div style="display:flex; gap:.5rem;">
+    <a href="/ho/month/{{ year }}/{{ '%02d' % month }}/combined"
+       class="btn btn-primary">📋 Combined List</a>
+    <a href="/ho/months" class="btn btn-secondary">← All Months</a>
+  </div>
 </div>
 
 {% if salons %}
@@ -32,11 +36,6 @@
           {{ int(s['total_qty']) if s['total_qty'] == int(s['total_qty']) else s['total_qty'] }}
         </div>
         <div style="font-size:.75rem; color:#7A6B8A;">items delivered</div>
-        {% if s['last_delivery'] %}
-        <div style="font-size:.72rem; color:#9B8CAE; margin-top:.25rem;">
-          Last: {{ s['last_delivery'] }}
-        </div>
-        {% end %}
       </div>
       <a href="/ho/month/{{ year }}/{{ '%02d' % month }}/salon/{{ s['salon_code'] }}"
          class="btn btn-primary" style="font-size:.85rem; padding:.45rem 1rem;">

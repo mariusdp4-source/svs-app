@@ -1,0 +1,106 @@
+{% extends "../base.html" %}
+{% block title %}Combined Delivery – {{ month_label }}{% end %}
+{% block content %}
+
+<style>
+@media print {
+  .app-header, .app-footer, .no-print { display: none !important; }
+  .main-content { padding: 0 !important; margin: 0 !important; }
+  .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+  body { font-size: 11pt; }
+  .print-header { display: block !important; }
+  table { page-break-inside: avoid; }
+}
+.print-header { display: none; }
+.salon-chip {
+  display: inline-block;
+  font-size: .72rem; font-weight: 700;
+  padding: .15rem .5rem;
+  border-radius: 99px;
+  border: 1px solid #D5C8E8;
+  background: #EDE9F5; color: #3D1F5C;
+  margin: .1rem .15rem;
+  white-space: nowrap;
+}
+</style>
+
+<div class="print-header" style="text-align:center; margin-bottom:1.5rem; padding-bottom:1rem; border-bottom:2px solid #3D1F5C;">
+  <img src="/static/images/logo.png" alt="SVS" style="height:60px; margin-bottom:.5rem;">
+  <div style="font-size:1.4rem; font-weight:800; color:#3D1F5C;">Silver Violet Studios</div>
+  <div style="font-size:1rem; color:#7A6B8A;">Monthly Combined Delivery List – {{ month_label }}</div>
+</div>
+
+<div class="page-header no-print">
+  <div>
+    <h2>📋 Combined Delivery – {{ month_label }}</h2>
+    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem">
+      All items delivered to all salons during {{ month_label }}.
+    </p>
+  </div>
+  <div style="display:flex; gap:.5rem;">
+    <button onclick="window.print()" class="btn btn-primary no-print">🖨 Print</button>
+    <a href="/ho/month/{{ year }}/{{ '%02d' % month }}" class="btn btn-secondary no-print">← Back</a>
+  </div>
+</div>
+
+<!-- Grand total banner -->
+<div class="card" style="margin-bottom:1.5rem; padding:1rem 1.5rem; border-left:4px solid #7B3FA0;">
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem;">
+    <div style="font-size:1rem; font-weight:700; color:#3D1F5C;">
+      {{ month_label }} — All Salons
+    </div>
+    <div style="text-align:right;">
+      <span style="font-size:2rem; font-weight:800; color:#7B3FA0;">{{ grand_total }}</span>
+      <span style="font-size:.8rem; color:#7A6B8A; margin-left:.4rem;">total items delivered</span>
+    </div>
+  </div>
+</div>
+
+{% for cat in categories %}
+<div class="card" style="margin-bottom:1.25rem; padding:1.1rem 1.5rem;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.6rem;">
+    <h3 style="color:#3D1F5C; margin:0; font-size:.95rem;">{{ cat['name'] }}</h3>
+    <span style="font-size:.8rem; color:#7A6B8A; font-weight:600;">{{ cat['total'] }} items</span>
+  </div>
+  <table class="table" style="margin:0; font-size:.875rem; width:100%;">
+    <thead>
+      <tr>
+        <th style="text-align:left; width:40%;">Product</th>
+        <th style="text-align:right; width:70px; color:#27AE60;">Total</th>
+        <th style="text-align:left; color:#7B3FA0;">Per Salon</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for item in cat['items'] %}
+    <tr>
+      <td style="font-weight:500; color:#2C1A3E;">{{ item['product_name'] }}</td>
+      <td style="text-align:right; font-weight:800; color:#27AE60; font-size:.95rem;">
+        {{ item['total_qty'] }}
+      </td>
+      <td>
+        {% for s in item['salons'] %}
+        <span class="salon-chip">{{ s['code'] }}:{{ s['qty'] }}</span>
+        {% end %}
+      </td>
+    </tr>
+    {% end %}
+    <!-- Subtotal -->
+    <tr style="background:#F5EEF8; font-weight:700;">
+      <td style="color:#7B3FA0;">Subtotal</td>
+      <td style="text-align:right; color:#7B3FA0; font-size:1rem;">{{ cat['total'] }}</td>
+      <td></td>
+    </tr>
+    </tbody>
+  </table>
+</div>
+{% end %}
+
+<!-- Grand total footer -->
+<div class="card" style="border:2px solid #7B3FA0; padding:1rem 1.5rem;">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <span style="font-size:1rem; font-weight:700; color:#3D1F5C;">Grand Total — {{ month_label }}</span>
+    <span style="font-size:1.5rem; font-weight:800; color:#7B3FA0;">{{ grand_total }} items</span>
+  </div>
+</div>
+
+{% end %}
