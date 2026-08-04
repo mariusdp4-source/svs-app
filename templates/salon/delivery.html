@@ -108,7 +108,7 @@
             <span style="font-size:.7rem; background:#FEF9E7; color:#B7770D; font-weight:700;
                          padding:.15rem .45rem; border-radius:6px; margin-left:.35rem;
                          border:1px solid #F0C040;">
-              ⚠ Kort {{ int(short_qty) if short_qty == int(short_qty) else short_qty }}
+              ⚠ Short {{ int(short_qty) if short_qty == int(short_qty) else short_qty }}
             </span>
             {% end %}
             {% if item['note'] %}
@@ -140,7 +140,7 @@
           <td>
             <input type="text"
                    name="dnote_{{ item['id'] }}"
-                   placeholder="{% if not_packed %}Nie ontvang{% elif partial_pack %}Kort {{ int(short_qty) if short_qty == int(short_qty) else short_qty }} stuks...{% else %}Nota...{% end %}"
+                   placeholder="{% if not_packed %}Nie ontvang{% elif partial_pack %}Short {{ int(short_qty) if short_qty == int(short_qty) else short_qty }} units...{% else %}Nota...{% end %}"
                    style="width:100%; border:1px solid #D5C8E8; border-radius:5px;
                           padding:.28rem .55rem; font-size:.8rem;">
           </td>

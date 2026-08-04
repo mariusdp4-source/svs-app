@@ -47,7 +47,7 @@
 <div class="card" style="margin-bottom:1.25rem; padding:1rem 1.5rem;">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
     <span style="font-weight:600; color:#3D1F5C;">Packing Progress</span>
-    <span style="font-size:.9rem; color:#7A6B8A;" id="progressLabel">{{ packed_count }} / {{ total }} items packed</span>
+    <span style="font-size:.9rem; color:#7A6B8A;" id="progressLabel">{{ int(packed_count) }} / {{ int(total) }} items packed</span>
   </div>
   <div style="background:#EDE9F5; border-radius:99px; height:10px; overflow:hidden;">
     <div id="progressBar"
@@ -62,7 +62,7 @@
   {% elif unpacked_items %}
   <div style="margin-top:.6rem; font-size:.8rem; color:#A04000;">
     <strong>⏳ Still to pack:</strong>
-    {% for idx, i in enumerate(unpacked_items) %}{{ i['product_name'] }}{% if i['quantity'] > 1 %} ×{{ int(i['quantity']) }}{% end %}{% if idx < len(unpacked_items) - 1 %} · {% end %}{% end %}
+    {% for idx, i in enumerate(unpacked_items) %}{{ i['product_name'] }}{% set outstanding_qty = int(i['quantity'] - float(i.get('packed_qty') or 0)) %}{% if outstanding_qty > 1 %} ×{{ outstanding_qty }}{% end %}{% if idx < len(unpacked_items) - 1 %} · {% end %}{% end %}
   </div>
   {% end %}
 </div>
