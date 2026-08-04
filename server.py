@@ -3471,8 +3471,20 @@ class HOMonthSalonHandler(BaseHandler):
         if not orders:
             self.redirect(f'/ho/month/{year}/{month:02d}'); return
         salon_name = orders[0]['salon_name']
-        items_by_cat = {}
+        # Delivery dates in order (short label e.g. "14 Jul")
+        dates = []
+        date_labels = []
         for o in orders:
+            d = (o['delivered_at'] or o['pack_date'])[:10]
+            if d not in dates:
+                dates.append(d)
+                dt = datetime.date.fromisoformat(d)
+                date_labels.append(f"{dt.day} {MAANDE[dt.month-1]}")
+
+        # Aggregate qty per (category, product) per date
+        product_data = {}  # (cat, name) -> {date: qty}
+        for o in orders:
+            d = (o['delivered_at'] or o['pack_date'])[:10]
             rows = db.execute("""
                 SELECT product_name, category,
                        COALESCE(delivered_qty, quantity) as del_qty
@@ -3482,29 +3494,40 @@ class HOMonthSalonHandler(BaseHandler):
                 ORDER BY category, product_name
             """, (o['id'],)).fetchall()
             for row in rows:
-                cat = row['category']
-                name = row['product_name']
-                if cat not in items_by_cat:
-                    items_by_cat[cat] = {}
-                items_by_cat[cat][name] = items_by_cat[cat].get(name, 0) + float(row['del_qty'])
+                key = (row['category'], row['product_name'])
+                if key not in product_data:
+                    product_data[key] = {}
+                product_data[key][d] = product_data[key].get(d, 0) + float(row['del_qty'])
+
         cat_order = ['Salon', 'Cleaning', 'Perms', 'Tints', 'Retail']
         categories = []
+        grand_total = 0
         for cat in cat_order:
-            if cat in items_by_cat:
-                cat_items = sorted(items_by_cat[cat].items())
-                total = sum(q for _, q in cat_items)
+            cat_rows = []
+            for (c, name), date_qtys in sorted(product_data.items()):
+                if c != cat: continue
+                qtys = [date_qtys.get(d, 0) for d in dates]
+                total = sum(qtys)
+                qtys_fmt = [int(q) if q == int(q) else q for q in qtys]
+                total_fmt = int(total) if total == int(total) else total
+                cat_rows.append({'product_name': name, 'qtys': qtys_fmt, 'total': total_fmt})
+                grand_total += total
+            if cat_rows:
+                cat_total = sum(r['total'] for r in cat_rows)
                 categories.append({
                     'name': cat,
-                    'items': [{'product_name': n, 'qty': int(q) if q == int(q) else q} for n, q in cat_items],
-                    'total': int(total) if total == int(total) else total,
+                    'rows': cat_rows,
+                    'total': int(cat_total) if cat_total == int(cat_total) else cat_total,
                 })
-        grand_total = sum(cat['total'] for cat in categories)
+
+        grand_total = int(grand_total) if grand_total == int(grand_total) else grand_total
         month_label = f"{MONTHS_FULL[month-1]} {year}"
         db.close()
         self.render('ho/month_salon.html', user=u,
                     salon_code=salon_code, salon_name=salon_name,
-                    orders=[dict(o) for o in orders], categories=categories,
-                    grand_total=grand_total,
+                    dates=dates, date_labels=date_labels,
+                    categories=categories, grand_total=grand_total,
+                    orders=[dict(o) for o in orders],
                     year=year, month=month, month_label=month_label)
 
 
