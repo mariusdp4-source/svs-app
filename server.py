@@ -705,8 +705,8 @@ class HOOrderViewHandler(BaseHandler):
             (order_id,)
         ).fetchall()
         db.close()
-        total  = len(items)
-        packed = sum(1 for i in items if i['packed'])
+        total  = sum(1 for i in items if i['category'] != 'Handoeke')
+        packed = sum(1 for i in items if i['packed'] and i['category'] != 'Handoeke')
         self.render('ho/order.html', user=u,
                     order=dict(order), items=[dict(i) for i in items],
                     total=total, packed_count=packed)
