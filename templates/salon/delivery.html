@@ -6,8 +6,8 @@
   <div>
     <h2>🚚 Delivery – Order #{{ order['id'] }}</h2>
     <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem">
-      Hoeveelhede kom van HO se pakklys. <span style="color:#C0392B; font-weight:600;">Rooi</span> = nie gepak nie ·
-      <span style="color:#B7770D; font-weight:600;">Amber</span> = kort afgelewer · Merk af wat ontvang is.
+      Quantities from HO packing list. <span style="color:#C0392B; font-weight:600;">Red</span> = not packed ·
+      <span style="color:#B7770D; font-weight:600;">Amber</span> = short delivered · Tick what was received.
     </p>
   </div>
   <span style="background:#D5F5E3; color:#1E8449; font-weight:700; padding:.3rem .85rem;
@@ -103,7 +103,7 @@
             {% if not_packed %}
             <span style="font-size:.7rem; background:#FDEDEC; color:#C0392B; font-weight:700;
                          padding:.15rem .45rem; border-radius:6px; margin-left:.35rem;
-                         border:1px solid #F1948A;">⚠ Nie gepak</span>
+                         border:1px solid #F1948A;">⚠ Not packed</span>
             {% elif partial_pack %}
             <span style="font-size:.7rem; background:#FEF9E7; color:#B7770D; font-weight:700;
                          padding:.15rem .45rem; border-radius:6px; margin-left:.35rem;
@@ -140,7 +140,7 @@
           <td>
             <input type="text"
                    name="dnote_{{ item['id'] }}"
-                   placeholder="{% if not_packed %}Nie ontvang{% elif partial_pack %}Short {{ int(short_qty) if short_qty == int(short_qty) else short_qty }} units...{% else %}Nota...{% end %}"
+                   placeholder="{% if not_packed %}Not received{% elif partial_pack %}Short {{ int(short_qty) if short_qty == int(short_qty) else short_qty }} units...{% else %}Note...{% end %}"
                    style="width:100%; border:1px solid #D5C8E8; border-radius:5px;
                           padding:.28rem .55rem; font-size:.8rem;">
           </td>
@@ -236,12 +236,12 @@ var _catItems = {};
   {% end %}
 {% end %}
 
-// Bestelde hoeveelhede (verwysing)
+// Ordered quantities (reference)
 var _orderedQtys = {};
 {% for item in items %}
 _orderedQtys[{{ item['id'] }}] = {{ item['quantity'] }};
 {% end %}
-// HO-gepakte hoeveelhede (gebruik vir aflewering-invul)
+// HO packed quantities (used for delivery pre-fill)
 var _effQtys = {};
 {% for item in items %}
 _effQtys[{{ item['id'] }}] = {{ item.get('eff_packed_qty', item['quantity']) }};
@@ -272,7 +272,7 @@ function selectCat(cat, checked) {
     var cb = document.getElementById('recv_' + id);
     if (cb) {
       cb.checked = checked;
-      // Gebruik HO-gepakte hoeveelheid (nie bestelde hoeveelheid nie)
+      // Use HO packed quantity (not ordered quantity)
       toggleRow(id, _effQtys[id] !== undefined ? _effQtys[id] : (_orderedQtys[id] || 0), checked);
     }
   });

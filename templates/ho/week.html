@@ -513,12 +513,12 @@
         <td style="text-align:center; vertical-align:middle; padding:.28rem .1rem;">
           {% if is_extra %}
           <button type="button" onclick="deleteStaticExtra(this, {{ si }})"
-                  title="Verwyder"
+                  title="Remove"
                   style="color:#C0392B; background:none; border:none; cursor:pointer;
                          font-size:.95rem; font-weight:700; line-height:1; padding:0;">✕</button>
           {% else %}
           <button type="button" onclick="deleteOutstandingRow(this, {{ si }})"
-                  title="Verwyder uit bestelling"
+                  title="Remove from order"
                   style="color:#C0392B; background:none; border:none; cursor:pointer;
                          font-size:.95rem; font-weight:700; line-height:1; padding:0;">✕</button>
           {% end %}
@@ -682,7 +682,7 @@ function bumpMaxIdx(idx) {
   if (inp && idx > parseInt(inp.value || '0')) inp.value = idx;
 }
 
-// Verwyder 'n gestoorde +EXTRA ry (deaktiveer pname sodat dit nie gestuur word nie)
+// Remove a saved +EXTRA row (deactivates pname so it won't be submitted)
 function deleteStaticExtra(btn, idx) {
   const row = btn.closest('tr');
   const inp = row.querySelector('input[name="pname_' + idx + '"]');
@@ -692,8 +692,8 @@ function deleteStaticExtra(btn, idx) {
   row.style.textDecoration = 'line-through';
 }
 
-// Verwyder 'n uitstaande item — stel qty na 0 sodat dit gestoor word as "nie bestel"
-// HOOrderListHandler sal dit dan oorslaaan op die druk-lys
+// Remove an outstanding item — sets qty to 0 so it's saved as "not ordered"
+// HOOrderListHandler will then skip it on the print list
 function deleteOutstandingRow(btn, idx) {
   const row = btn.closest('tr');
   const qtyInp = row.querySelector('input[name="qty_' + idx + '"]');
@@ -737,7 +737,7 @@ function addProductToOrder() {
     '</td>' +
     '<td style="text-align:center; padding:.28rem .2rem;">' +
       '<button type="button" onclick="removeExtraRow(this)"' +
-              ' style="color:#C0392B;background:none;border:none;cursor:pointer;font-size:.95rem;font-weight:700;line-height:1;" title="Verwyder">✕</button>' +
+              ' style="color:#C0392B;background:none;border:none;cursor:pointer;font-size:.95rem;font-weight:700;line-height:1;" title="Remove">✕</button>' +
     '</td>';
   tbody.appendChild(tr);
   section.style.display = 'block';
@@ -801,7 +801,7 @@ function addTintToOrder() {
     '</td>' +
     '<td style="text-align:center; padding:.28rem .2rem;">' +
       '<button type="button" onclick="removeTintRow(this)"' +
-              ' style="color:#C0392B;background:none;border:none;cursor:pointer;font-size:.95rem;font-weight:700;line-height:1;" title="Verwyder">✕</button>' +
+              ' style="color:#C0392B;background:none;border:none;cursor:pointer;font-size:.95rem;font-weight:700;line-height:1;" title="Remove">✕</button>' +
     '</td>';
   tbody.appendChild(tr);
   section.style.display = 'block';

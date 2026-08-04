@@ -171,13 +171,13 @@
       <td>
         {% if o['status'] == 'packed' and is_out %}
         <span style="background:#FEF0E6; color:#E67E22; font-weight:700; padding:.2rem .6rem;
-                     border-radius:99px; font-size:.78rem;">📦 Gepak – Uitstaande items</span>
+                     border-radius:99px; font-size:.78rem;">📦 Packed – Outstanding items</span>
         {% elif o['status'] == 'packed' %}
         <span style="background:#D5F5E3; color:#1E8449; font-weight:700; padding:.2rem .6rem;
-                     border-radius:99px; font-size:.78rem;">✅ Gepak</span>
+                     border-radius:99px; font-size:.78rem;">✅ Packed</span>
         {% else %}
         <span style="background:#FDEBD0; color:#A04000; font-weight:700; padding:.2rem .6rem;
-                     border-radius:99px; font-size:.78rem;">⏳ Ingedien (nog nie gepak)</span>
+                     border-radius:99px; font-size:.78rem;">⏳ Submitted (not yet packed)</span>
         {% end %}
       </td>
       <td style="color:#7A6B8A; font-size:.875rem;">{{ o['submitted_at'] or '–' }}</td>

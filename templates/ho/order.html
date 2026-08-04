@@ -26,14 +26,14 @@
                           border-left:4px solid #9B59B6; background:#F5EEF8;">
   <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem;">
     <p style="margin:0; font-weight:700; color:#6C3483; font-size:.9rem;">
-      🚚 Hierdie bestelling is afgelewer — geen wysigings moontlik nie.
+      🚚 This order has been delivered — no further changes allowed.
     </p>
     {% if outstanding_items %}
     <form method="POST" action="/ho/order/{{ order['id'] }}/fulfill-outstanding"
-          onsubmit="return confirm('Merk al die uitstaande items vir {{ order['salon_code'] }} as volledig afgelewer?')">
+          onsubmit="return confirm('Mark all outstanding items for {{ order['salon_code'] }} as fully delivered?')">
       <button type="submit" style="background:#27AE60; color:#fff; border:none; border-radius:8px;
                                    padding:.45rem 1rem; font-size:.85rem; font-weight:600; cursor:pointer;">
-        ✅ Merk Uitstaande as Afgelewer ({{ outstanding_items|length }} items)
+        ✅ Mark Outstanding as Delivered ({{ len(outstanding_items) }} items)
       </button>
     </form>
     {% end %}
