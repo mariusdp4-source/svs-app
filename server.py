@@ -429,9 +429,14 @@ class OrderViewHandler(BaseHandler):
             ).fetchall()]
         salon = db.execute("SELECT * FROM salons WHERE id=?", (order['salon_id'],)).fetchone()
         db.close()
+        # Packing progress — quantity-based (same logic as HO order view)
+        total_qty  = sum(float(i['quantity']) for i in all_items if i['category'] != 'Handoeke')
+        packed_qty = sum(float(i['packed_qty'] or 0) for i in all_items
+                         if i['packed'] and i['category'] != 'Handoeke')
         self.render('salon/order_view.html', user=u, order=dict(order),
                     items=items, towel_items=towel_items,
-                    towel_logs_data=towel_logs_data, salon=dict(salon))
+                    towel_logs_data=towel_logs_data, salon=dict(salon),
+                    total_qty=total_qty, packed_qty=packed_qty)
 
 # ─── HO ───────────────────────────────────────────────────────────────────────
 

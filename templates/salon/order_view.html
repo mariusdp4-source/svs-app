@@ -47,6 +47,33 @@
   </div>
 </div>
 
+{% if order['status'] == 'packed' %}
+<!-- ── Packing progress (quantity-based) ── -->
+{% set pct = int(packed_qty * 100 / total_qty) if total_qty > 0 else 0 %}
+{% set unpacked = [i for i in items if i['category'] != 'Handoeke' and (not i['packed'] or float(i.get('packed_qty') or 0) < float(i['quantity']))] %}
+<div class="card" style="margin-bottom:1.25rem; padding:1rem 1.5rem;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
+    <span style="font-weight:600; color:#3D1F5C;">Packing Progress</span>
+    <span style="font-size:.9rem; color:#7A6B8A;">
+      {{ int(packed_qty) if packed_qty == int(packed_qty) else packed_qty }} /
+      {{ int(total_qty) if total_qty == int(total_qty) else total_qty }} units packed
+    </span>
+  </div>
+  <div style="background:#EDE9F5; border-radius:99px; height:10px; overflow:hidden;">
+    <div style="background:{% if pct == 100 %}#27AE60{% else %}#7B3FA0{% end %};
+                height:100%; width:{{ pct }}%; border-radius:99px; transition:width .4s ease;"></div>
+  </div>
+  {% if pct == 100 %}
+  <p style="color:#27AE60; font-size:.85rem; margin-top:.5rem; font-weight:600;">✅ All packed!</p>
+  {% elif unpacked %}
+  <div style="margin-top:.6rem; font-size:.8rem; color:#A04000;">
+    <strong>⏳ Still to pack:</strong>
+    {% for idx, i in enumerate(unpacked) %}{{ i['product_name'] }}{% set out = int(i['quantity'] - float(i.get('packed_qty') or 0)) %}{% if out > 1 %} ×{{ out }}{% end %}{% if idx < len(unpacked) - 1 %} · {% end %}{% end %}
+  </div>
+  {% end %}
+</div>
+{% end %}
+
 {% if order['status'] == 'delivered' %}
   <!-- ── Delivery summary ── -->
   {% set total_items = len(items) %}
