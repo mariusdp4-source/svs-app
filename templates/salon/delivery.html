@@ -279,13 +279,19 @@ function selectCat(cat, checked) {
 }
 
 function updateSummary() {
-  var all   = document.querySelectorAll('[id^="recv_"]');
-  var done  = Array.from(all).filter(c => c.checked).length;
-  var total = all.length;
+  var totalOrdered = 0, totalDelivered = 0;
+  Object.keys(_orderedQtys).forEach(function(id) {
+    var inp = document.querySelector('[name="dqty_' + id + '"]');
+    if (inp !== null) {
+      totalOrdered   += parseFloat(_orderedQtys[id]) || 0;
+      totalDelivered += parseFloat(inp.value) || 0;
+    }
+  });
   var el = document.getElementById('delivery-summary');
   if (el) {
-    el.innerHTML = '<strong style="color:' + (done == total ? '#27AE60' : '#E67E22') + ';">' +
-                   done + ' / ' + total + '</strong> items delivered';
+    var ok = totalDelivered >= totalOrdered;
+    el.innerHTML = '<strong style="color:' + (ok ? '#27AE60' : '#E67E22') + ';">' +
+                   totalDelivered + ' / ' + totalOrdered + '</strong> units delivered';
   }
 }
 
@@ -296,11 +302,18 @@ function checkSignoff() {
     name.focus();
     return false;
   }
-  var all  = document.querySelectorAll('[id^="recv_"]');
-  var done = Array.from(all).filter(c => c.checked).length;
-  var msg  = done == all.length
-    ? 'All ' + done + ' items delivered. Confirm sign-off by ' + name.value.trim() + '?'
-    : done + ' of ' + all.length + ' items delivered — ' + (all.length - done) + ' outstanding.\nConfirm sign-off by ' + name.value.trim() + '?';
+  var totalOrdered = 0, totalDelivered = 0;
+  Object.keys(_orderedQtys).forEach(function(id) {
+    var inp = document.querySelector('[name="dqty_' + id + '"]');
+    if (inp !== null) {
+      totalOrdered   += parseFloat(_orderedQtys[id]) || 0;
+      totalDelivered += parseFloat(inp.value) || 0;
+    }
+  });
+  var outstanding = totalOrdered - totalDelivered;
+  var msg = outstanding <= 0
+    ? 'All ' + totalDelivered + ' units delivered. Confirm sign-off by ' + name.value.trim() + '?'
+    : totalDelivered + ' of ' + totalOrdered + ' units delivered — ' + outstanding + ' outstanding.\nConfirm sign-off by ' + name.value.trim() + '?';
   return confirm(msg);
 }
 
