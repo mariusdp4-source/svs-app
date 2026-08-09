@@ -963,7 +963,7 @@ class HOOrderEditHandler(BaseHandler):
                 )
             else:
                 db.execute(
-                    "INSERT INTO order_items (order_id, product_name, category, quantity, note, is_custom) VALUES (?,?,?,?,?,?)",
+                    "INSERT INTO order_items (order_id, product_name, category, quantity, note, is_custom, ho_added) VALUES (?,?,?,?,?,?,1)",
                     (order_id, name, cat, qty, note, 1 if item.get('is_custom') else 0)
                 )
 
@@ -3774,6 +3774,7 @@ def run_migrations():
         "ALTER TABLE stock_orders ADD COLUMN packed_at TEXT",
         "ALTER TABLE products ADD COLUMN supplier TEXT DEFAULT ''",
         "ALTER TABLE order_items ADD COLUMN packed_qty REAL DEFAULT 0",
+        "ALTER TABLE order_items ADD COLUMN ho_added INTEGER DEFAULT 0",
         # Unieke indeks — verhoed duplikaat produk-name ongeag kategorie
         # Sal slegs slaag nadat duplikate verwyder is; fout word stilweg geignoreer
         "CREATE UNIQUE INDEX IF NOT EXISTS uix_products_name ON products(LOWER(TRIM(name)))",
@@ -3814,6 +3815,35 @@ def run_migrations():
             "INSERT INTO users (username, password_hash, name, role, salon_id) VALUES (?,?,?,?,?)",
             ('reception@AV', f'{_salt}:{_h}', 'Avilan', 'salon', avilan['id'])
         )
+
+    # ── Die Wilgers salon + gebruiker ──────────────────────────────────────────
+    db.execute("INSERT OR IGNORE INTO salons (code, name) VALUES ('WG', 'Die Wilgers')")
+    db.commit()
+    wg = db.execute("SELECT id FROM salons WHERE code='WG'").fetchone()
+    if wg and not db.execute("SELECT 1 FROM users WHERE username='reception@WG'").fetchone():
+        _salt = os.urandom(16).hex()
+        _h    = hashlib.pbkdf2_hmac('sha256', b'WGWG', _salt.encode(), 100000).hex()
+        db.execute(
+            "INSERT INTO users (username, password_hash, name, role, salon_id) VALUES (?,?,?,?,?)",
+            ('reception@WG', f'{_salt}:{_h}', 'Die Wilgers', 'salon', wg['id'])
+        )
+        db.commit()
+
+    # ── HO-logins: Danielia, Petro, Suan ──────────────────────────────────────
+    _ho_users = [
+        ('Danielia@HO', b'4444', 'Danielia'),
+        ('Petro@HO',    b'5555', 'Petro'),
+        ('Suan@HO',     b'6666', 'Suan'),
+    ]
+    for _uname, _pw, _name in _ho_users:
+        if not db.execute("SELECT 1 FROM users WHERE username=?", (_uname,)).fetchone():
+            _salt = os.urandom(16).hex()
+            _h    = hashlib.pbkdf2_hmac('sha256', _pw, _salt.encode(), 100000).hex()
+            db.execute(
+                "INSERT INTO users (username, password_hash, name, role, salon_id) VALUES (?,?,?,?,?)",
+                (_uname, f'{_salt}:{_h}', _name, 'ho_admin', None)
+            )
+    db.commit()
     # Stel alle Tints-produkte se verskaffer op HHB (idempotent)
     db.execute("UPDATE products SET supplier='HHB' WHERE category='Tints'")
     db.commit()
