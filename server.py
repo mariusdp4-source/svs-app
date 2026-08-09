@@ -833,7 +833,7 @@ class HOFulfillOutstandingHandler(BaseHandler):
 
 
 class HOOrderEditHandler(BaseHandler):
-    """Laat HO toe om 'n teruggesette (konsep) bestelling te redigeer en direk te herindien."""
+    """Laat HO toe om 'n bestelling (draft/submitted/packed) direk te redigeer."""
     @tornado.web.authenticated
     def get(self, order_id):
         u = self.current_user
@@ -843,7 +843,7 @@ class HOOrderEditHandler(BaseHandler):
         order = db.execute("""
             SELECT o.*, s.code as salon_code, s.name as salon_name
             FROM stock_orders o JOIN salons s ON o.salon_id = s.id
-            WHERE o.id=? AND o.status='draft'
+            WHERE o.id=? AND o.status IN ('draft','submitted','packed')
         """, (order_id,)).fetchone()
         if not order:
             db.close()
@@ -931,29 +931,58 @@ class HOOrderEditHandler(BaseHandler):
 
         db = get_db()
         order = db.execute(
-            "SELECT * FROM stock_orders WHERE id=? AND status='draft'", (order_id,)
+            "SELECT * FROM stock_orders WHERE id=? AND status IN ('draft','submitted','packed')", (order_id,)
         ).fetchone()
         if not order:
             db.close(); self.redirect('/ho/dashboard'); return
 
-        # Items opdateer
-        db.execute("DELETE FROM order_items WHERE order_id=?", (order_id,))
+        current_status = order['status']
+
+        # Slim items merge — bewaar packing data vir bestaande items
+        existing_rows = db.execute(
+            "SELECT * FROM order_items WHERE order_id=?", (order_id,)
+        ).fetchall()
+        existing = {(r['product_name'], r['category']): dict(r) for r in existing_rows}
+
+        keep_keys = set()
         for item in items:
-            if not item.get('name', '').strip():
+            name = item.get('name', '').strip()
+            cat  = item.get('category', 'Salon')
+            if not name:
                 continue
-            if item.get('category') == 'Handoeke' and float(item.get('quantity', 0)) == 0:
+            if cat == 'Handoeke' and float(item.get('quantity', 0)) == 0:
                 continue
+            key = (name, cat)
+            keep_keys.add(key)
+            qty  = float(item.get('quantity', 1))
+            note = item.get('note', '')
+            if key in existing:
+                db.execute(
+                    "UPDATE order_items SET quantity=?, note=? WHERE id=?",
+                    (qty, note, existing[key]['id'])
+                )
+            else:
+                db.execute(
+                    "INSERT INTO order_items (order_id, product_name, category, quantity, note, is_custom) VALUES (?,?,?,?,?,?)",
+                    (order_id, name, cat, qty, note, 1 if item.get('is_custom') else 0)
+                )
+
+        # Verwyder items wat uitgehaal is
+        for (name, cat), row in existing.items():
+            if (name, cat) not in keep_keys:
+                db.execute("DELETE FROM order_items WHERE id=?", (row['id'],))
+
+        # Hou status onveranderd (submitted/packed bly soos is); draft word submitted
+        if current_status == 'draft':
             db.execute(
-                "INSERT INTO order_items (order_id, product_name, category, quantity, note, is_custom) VALUES (?,?,?,?,?,?)",
-                (order_id, item['name'], item.get('category','Salon'),
-                 float(item.get('quantity',1)), item.get('note',''),
-                 1 if item.get('is_custom') else 0)
+                "UPDATE stock_orders SET pack_date=?, notes=?, status='submitted', submitted_at=? WHERE id=?",
+                (week_monday(), notes, sast_now(), order_id)
             )
-        # Direk herindien — stel pack_date as Maandag van die huidige week
-        db.execute(
-            "UPDATE stock_orders SET pack_date=?, notes=?, status='submitted', submitted_at=? WHERE id=?",
-            (week_monday(), notes, sast_now(), order_id)
-        )
+        else:
+            db.execute(
+                "UPDATE stock_orders SET notes=? WHERE id=?",
+                (notes, order_id)
+            )
         db.commit()
         db.close()
         self.redirect(f'/ho/order/{order_id}')
