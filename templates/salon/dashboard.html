@@ -6,8 +6,20 @@
     <h2>Welcome, {{ user['name'] }}</h2>
     <p class="text-muted">{{ user.get('salon_name','') }}</p>
   </div>
-  {% if not draft %}
-  <a href="/salon/order/new" class="btn btn-primary">+ New Order</a>
+  {% if window_open %}
+    {% if not current_week_order and not draft %}
+    <a href="/salon/order/new" class="btn btn-primary">+ New Order</a>
+    {% elif current_week_order and current_week_order['status'] == 'packed' %}
+    <span style="font-size:.82rem; color:#7A6B8A; padding:.35rem .85rem;
+                 background:#F3F0F8; border-radius:8px; border:1px solid #D5C8E8;">
+      🔒 Order packed — no changes allowed
+    </span>
+    {% end %}
+  {% else %}
+  <span style="font-size:.82rem; color:#7A6B8A; padding:.35rem .85rem;
+               background:#F3F0F8; border-radius:8px; border:1px solid #D5C8E8;">
+    📅 Next order window: Tuesday
+  </span>
   {% end %}
 </div>
 

@@ -235,6 +235,15 @@
     </button>
   </form>
   {% end %}
+  {% if order['status'] in ('submitted', 'packed') %}
+  <form method="POST" action="/ho/order/{{ order['id'] }}/delete" style="margin:0;"
+        onsubmit="return confirm('Permanently delete this order for {{ order['salon_code'] }}? This cannot be undone.')">
+    <button type="submit" class="btn btn-ghost"
+            style="border-color:#C0392B; color:#C0392B; font-size:.95rem; padding:.55rem 1.1rem;">
+      🗑 Delete Order
+    </button>
+  </form>
+  {% end %}
 </div>
 
 {% end %}

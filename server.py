@@ -53,6 +53,23 @@ def fmt_date(date_str):
     except Exception:
         return str(date_str)
 
+def order_window():
+    """Returns (pack_date, is_open) for the current ordering window.
+    Window: Tuesday 00:00 → Friday 11:00 SAST.
+    Tuesday → pack_date is next Wednesday.
+    Wed–Fri → pack_date is current Wednesday.
+    """
+    now = datetime.datetime.utcnow() + datetime.timedelta(hours=2)
+    wd = now.weekday()  # 0=Mon,1=Tue,2=Wed,3=Thu,4=Fri,5=Sat,6=Sun
+    if wd == 1:  # Tuesday → pack next Wednesday
+        return (now.date() + datetime.timedelta(days=1)).isoformat(), True
+    elif wd in (2, 3):  # Wed or Thu
+        return week_monday(), True
+    elif wd == 4 and now.hour < 11:  # Friday before 11:00
+        return week_monday(), True
+    else:
+        return week_monday(), False
+
 def check_password(stored, provided):
     try:
         salt, h = stored.split(':')
@@ -121,10 +138,18 @@ class SalonDashboardHandler(BaseHandler):
         if u['role'] == 'ho_admin':
             self.redirect('/ho/dashboard'); return
         db = get_db()
+        upcoming_pack, window_open = order_window()
         draft = db.execute(
             "SELECT * FROM stock_orders WHERE salon_id=? AND status='draft'",
             (u['salon_id'],)
         ).fetchone()
+        # Active order for the current/upcoming pack week (submitted or packed)
+        current_week_order = db.execute("""
+            SELECT * FROM stock_orders
+            WHERE salon_id=? AND pack_date=? AND status IN ('submitted','packed')
+            ORDER BY submitted_at DESC LIMIT 1
+        """, (u['salon_id'], upcoming_pack)).fetchone()
+        current_week_order = dict(current_week_order) if current_week_order else None
         active_orders_raw = db.execute(
             "SELECT * FROM stock_orders WHERE salon_id=? AND status IN ('submitted','packed') ORDER BY pack_date DESC",
             (u['salon_id'],)
@@ -214,6 +239,7 @@ class SalonDashboardHandler(BaseHandler):
                     outstanding_last=outstanding_last,
                     last_delivery=dict(last_delivery) if last_delivery else None,
                     last_towel_logs=last_towel_logs,
+                    window_open=window_open, current_week_order=current_week_order,
                     active_order_towels=active_order_towels,
                     last_towel_sent=last_towel_sent,
                     towel_types=TOWEL_TYPES)
@@ -224,7 +250,17 @@ class OrderNewHandler(BaseHandler):
         u = self.current_user
         if u['role'] == 'ho_admin':
             self.redirect('/ho/dashboard'); return
+        upcoming_pack, window_open = order_window()
+        if not window_open:
+            self.redirect('/salon/dashboard'); return
         db = get_db()
+        # Block second order: if submitted/packed order already exists for this week, redirect
+        existing = db.execute("""
+            SELECT id FROM stock_orders
+            WHERE salon_id=? AND pack_date=? AND status IN ('submitted','packed')
+        """, (u['salon_id'], upcoming_pack)).fetchone()
+        if existing:
+            db.close(); self.redirect('/salon/dashboard'); return
         draft = db.execute(
             "SELECT * FROM stock_orders WHERE salon_id=? AND status='draft'",
             (u['salon_id'],)
@@ -234,7 +270,7 @@ class OrderNewHandler(BaseHandler):
         else:
             cur = db.execute(
                 "INSERT INTO stock_orders (salon_id, pack_date, status) VALUES (?,?,'draft')",
-                (u['salon_id'], week_monday())
+                (u['salon_id'], upcoming_pack)
             )
             db.commit()
             order_id = cur.lastrowid
@@ -3378,6 +3414,29 @@ class HOStockTakePdfHandler(BaseHandler):
 
 # ─── Billing / Month Handlers ─────────────────────────────────────────────────
 
+class HOOrderDeleteHandler(BaseHandler):
+    @tornado.web.authenticated
+    def post(self, order_id):
+        u = self.current_user
+        if u['role'] != 'ho_admin':
+            self.redirect('/salon/dashboard'); return
+        db = get_db()
+        order = db.execute(
+            "SELECT * FROM stock_orders WHERE id=? AND status IN ('submitted','packed')",
+            (order_id,)
+        ).fetchone()
+        if order:
+            pack_date = order['pack_date']
+            db.execute("DELETE FROM order_items WHERE order_id=?", (order_id,))
+            db.execute("DELETE FROM stock_orders WHERE id=?", (order_id,))
+            db.commit()
+            db.close()
+            self.redirect(f'/ho/week/{pack_date}')
+        else:
+            db.close()
+            self.redirect('/ho/dashboard')
+
+
 class HOMonthListHandler(BaseHandler):
     @tornado.web.authenticated
     def get(self):
@@ -3645,6 +3704,7 @@ def make_app():
             (r'/ho/week/([0-9-]+)/towels-word',     HOTowelWordHandler),
             (r'/ho/order/(\d+)/edit',                   HOOrderEditHandler),
             (r'/ho/order/(\d+)/fulfill-outstanding',    HOFulfillOutstandingHandler),
+            (r'/ho/order/(\d+)/delete',                 HOOrderDeleteHandler),
             (r'/ho/order/(\d+)',                        HOOrderViewHandler),
             (r'/ho/order/(\d+)/pack-items',             HOOrderPackItemsHandler),
             (r'/ho/products',                   AdminProductsHandler),
