@@ -237,7 +237,7 @@
     ✏️ Edit Order
   </a>
   {% end %}
-  {% if order['status'] in ('submitted', 'packed') %}
+  {% if order['status'] in ('submitted', 'packed', 'delivered') %}
   <form method="POST" action="/ho/order/{{ order['id'] }}/delete" style="margin:0;"
         onsubmit="return confirm('Permanently delete this order for {{ order['salon_code'] }}? This cannot be undone.')">
     <button type="submit" class="btn btn-ghost"

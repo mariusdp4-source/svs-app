@@ -1034,9 +1034,14 @@ class HOPackingListHandler(BaseHandler):
         orders_raw = db.execute("""
             SELECT o.*, s.code as salon_code, s.name as salon_name
             FROM stock_orders o JOIN salons s ON o.salon_id = s.id
-            WHERE o.pack_date BETWEEN ? AND ? AND o.status != 'draft'
+            WHERE o.pack_date BETWEEN ? AND ? AND o.status IN ('submitted','packed')
+            ORDER BY o.submitted_at DESC
         """, (monday, sunday)).fetchall()
-        salon_orders = {o['salon_code']: dict(o) for o in orders_raw}
+        # Keep only the latest submitted/packed order per salon (skip older duplicates)
+        salon_orders = {}
+        for o in orders_raw:
+            if o['salon_code'] not in salon_orders:
+                salon_orders[o['salon_code']] = dict(o)
 
         salon_items = {}
         for code, order in salon_orders.items():
@@ -3451,7 +3456,7 @@ class HOOrderDeleteHandler(BaseHandler):
             self.redirect('/salon/dashboard'); return
         db = get_db()
         order = db.execute(
-            "SELECT * FROM stock_orders WHERE id=? AND status IN ('submitted','packed')",
+            "SELECT * FROM stock_orders WHERE id=? AND status IN ('submitted','packed','delivered')",
             (order_id,)
         ).fetchone()
         if order:
