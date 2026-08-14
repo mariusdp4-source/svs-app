@@ -22,18 +22,19 @@
 
 {% if is_delivered %}
 {% set outstanding_items = [i for i in items if i['category'] != 'Handoeke' and float(i.get('quantity') or 0) > float(i.get('delivered_qty') or 0)] %}
+{% set packed_outstanding = [i for i in outstanding_items if i.get('packed')] %}
 <div class="card" style="margin-bottom:1.25rem; padding:.9rem 1.5rem;
                           border-left:4px solid #9B59B6; background:#F5EEF8;">
   <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem;">
     <p style="margin:0; font-weight:700; color:#6C3483; font-size:.9rem;">
       🚚 This order has been delivered — no further changes allowed.
     </p>
-    {% if outstanding_items %}
+    {% if packed_outstanding %}
     <form method="POST" action="/ho/order/{{ order['id'] }}/fulfill-outstanding"
-          onsubmit="return confirm('Mark all outstanding items for {{ order['salon_code'] }} as fully delivered?')">
+          onsubmit="return confirm('Mark {{ len(packed_outstanding) }} packed item(s) as delivered for {{ order['salon_code'] }}?')">
       <button type="submit" style="background:#27AE60; color:#fff; border:none; border-radius:8px;
                                    padding:.45rem 1rem; font-size:.85rem; font-weight:600; cursor:pointer;">
-        ✅ Mark Outstanding as Delivered ({{ len(outstanding_items) }} items)
+        ✅ Mark Packed Items as Delivered ({{ len(packed_outstanding) }} items)
       </button>
     </form>
     {% end %}

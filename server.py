@@ -835,10 +835,13 @@ class HOFulfillOutstandingHandler(BaseHandler):
             "SELECT * FROM stock_orders WHERE id=? AND status='delivered'", (order_id,)
         ).fetchone()
         if order:
+            # Only mark items that HO has actually packed (packed=1)
+            # Items not yet packed remain outstanding
             db.execute("""
                 UPDATE order_items
-                SET delivered_qty = quantity
+                SET delivered_qty = COALESCE(NULLIF(packed_qty,0), quantity)
                 WHERE order_id=? AND category != 'Handoeke'
+                  AND COALESCE(packed,0) = 1
                   AND COALESCE(delivered_qty, 0) < quantity
             """, (order_id,))
             db.commit()
