@@ -566,28 +566,42 @@ class HOWeekHandler(BaseHandler):
         sunday = week_sunday(monday)
         friday = week_friday(monday)
         db = get_db()
-        orders = db.execute("""
+        # Fetch all non-draft orders; deduplicate per salon — prefer submitted/packed over delivered
+        orders_raw = db.execute("""
             SELECT o.*, s.code as salon_code, s.name as salon_name
             FROM stock_orders o JOIN salons s ON o.salon_id = s.id
             WHERE o.pack_date BETWEEN ? AND ? AND o.status != 'draft'
-            ORDER BY s.code
+            ORDER BY s.code,
+                     CASE o.status WHEN 'submitted' THEN 0 WHEN 'packed' THEN 0 ELSE 1 END,
+                     o.submitted_at DESC
         """, (monday, sunday)).fetchall()
-        orders = [dict(o) for o in orders]
+        seen_codes = set()
+        orders = []
+        for o in orders_raw:
+            od = dict(o)
+            if od['salon_code'] not in seen_codes:
+                seen_codes.add(od['salon_code'])
+                orders.append(od)
 
-        # Gesamentlike item-lys vir die week
-        items_raw = db.execute("""
-            SELECT oi.order_id, oi.product_name, oi.category, oi.quantity,
-                   COALESCE(oi.packed, 0) as packed,
-                   CASE WHEN COALESCE(oi.packed,0)=1
-                        THEN COALESCE(NULLIF(oi.packed_qty,0), oi.quantity)
-                        ELSE 0 END as item_packed_qty,
-                   s.code as salon_code
-            FROM order_items oi
-            JOIN stock_orders so ON oi.order_id = so.id
-            JOIN salons s ON so.salon_id = s.id
-            WHERE so.pack_date BETWEEN ? AND ? AND so.status != 'draft'
-            ORDER BY oi.category, oi.product_name
-        """, (monday, sunday)).fetchall()
+        # Gesamentlike item-lys: alleen vir die gekose orders
+        selected_ids = [o['id'] for o in orders]
+        if selected_ids:
+            placeholders = ','.join(['?' for _ in selected_ids])
+            items_raw = db.execute(f"""
+                SELECT oi.order_id, oi.product_name, oi.category, oi.quantity,
+                       COALESCE(oi.packed, 0) as packed,
+                       CASE WHEN COALESCE(oi.packed,0)=1
+                            THEN COALESCE(NULLIF(oi.packed_qty,0), oi.quantity)
+                            ELSE 0 END as item_packed_qty,
+                       s.code as salon_code
+                FROM order_items oi
+                JOIN stock_orders so ON oi.order_id = so.id
+                JOIN salons s ON so.salon_id = s.id
+                WHERE oi.order_id IN ({placeholders})
+                ORDER BY oi.category, oi.product_name
+            """, selected_ids).fetchall()
+        else:
+            items_raw = []
         db.close()
 
         # Track whether each order has any outstanding (not fully packed) items
