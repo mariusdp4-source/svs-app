@@ -203,6 +203,20 @@
     </table>
   </div>
 
+  <!-- ── Extra items delivered but not ordered ── -->
+  <div class="card" style="margin-bottom:1rem; padding:1.25rem 1.5rem; border-left:4px solid #1565C0;">
+    <h3 style="color:#1565C0; margin-bottom:.4rem; font-size:.95rem;">➕ Extra Items Delivered</h3>
+    <p style="font-size:.8rem; color:#7A6B8A; margin-bottom:.75rem;">
+      Add items that were delivered but not in the original order.
+    </p>
+    <div id="extraItemsContainer"></div>
+    <button type="button" onclick="addExtraItem()"
+            style="background:#1565C0; color:#fff; border:none; border-radius:8px;
+                   padding:.4rem 1rem; font-size:.85rem; font-weight:600; cursor:pointer; margin-top:.4rem;">
+      + Add Item
+    </button>
+  </div>
+
   <!-- Sign off -->
   <div class="card" style="margin-bottom:1.5rem; border:2px solid #27AE60;">
     <h3 style="color:#1E8449; margin-bottom:1rem;">✍️ Sign Off</h3>
@@ -323,5 +337,25 @@ function checkSignoff() {
 
 // Init summary
 updateSummary();
+
+// ── Extra items ────────────────────────────────────────────
+var _extraCount = 0;
+var _cats = ['Salon','Cleaning','Perms','Tints','Retail'];
+function addExtraItem() {
+  var i = _extraCount++;
+  var div = document.createElement('div');
+  div.style.cssText = 'display:flex; gap:.5rem; align-items:center; margin-bottom:.5rem; flex-wrap:wrap;';
+  div.innerHTML =
+    '<input type="text" name="extra_name_' + i + '" placeholder="Product name" required ' +
+      'style="flex:2; min-width:160px; border:1.5px solid #1565C0; border-radius:6px; padding:.3rem .55rem; font-size:.875rem;">' +
+    '<select name="extra_cat_' + i + '" style="border:1.5px solid #1565C0; border-radius:6px; padding:.3rem .4rem; font-size:.85rem;">' +
+      _cats.map(function(c){ return '<option value="' + c + '">' + c + '</option>'; }).join('') +
+    '</select>' +
+    '<input type="number" name="extra_qty_' + i + '" value="1" min="1" step="1" ' +
+      'style="width:65px; text-align:center; border:1.5px solid #1565C0; border-radius:6px; padding:.3rem .3rem; font-size:.875rem; font-weight:700;">' +
+    '<button type="button" onclick="this.parentNode.remove()" ' +
+      'style="background:#E74C3C; color:#fff; border:none; border-radius:6px; padding:.3rem .65rem; font-size:.85rem; cursor:pointer;">✕</button>';
+  document.getElementById('extraItemsContainer').appendChild(div);
+}
 </script>
 {% end %}

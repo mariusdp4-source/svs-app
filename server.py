@@ -2968,6 +2968,22 @@ class DeliveryHandler(BaseHandler):
                     (order_id, u['salon_id'], pack_date, t, sent, coll)
                 )
 
+        # Extra items added during delivery
+        for i in range(20):
+            extra_name = self.get_argument(f'extra_name_{i}', '').strip()
+            extra_cat  = self.get_argument(f'extra_cat_{i}', 'Salon').strip()
+            try:
+                extra_qty = float(self.get_argument(f'extra_qty_{i}', '0') or 0)
+            except Exception:
+                extra_qty = 0.0
+            if extra_name and extra_qty > 0:
+                db.execute("""
+                    INSERT INTO order_items
+                      (order_id, product_name, category, quantity, packed, packed_qty,
+                       delivered_qty, note, is_custom, ho_added)
+                    VALUES (?,?,?,?,1,?,?,?,1,0)
+                """, (order_id, extra_name, extra_cat, extra_qty, extra_qty, extra_qty, ''))
+
         signed_by = self.get_argument('signed_by', '').strip()
         db.execute(
             "UPDATE stock_orders SET status='delivered', delivered_at=datetime('now'), signed_by=? WHERE id=?",
@@ -3472,6 +3488,32 @@ class HOStockTakePdfHandler(BaseHandler):
         self.write(data)
 
 
+# ─── Per-item mark as delivered ───────────────────────────────────────────────
+
+class HOMarkItemDeliveredHandler(BaseHandler):
+    """Merk 'n enkele item as volledig afgelewer (dismiss outstanding)."""
+    @tornado.web.authenticated
+    def post(self, item_id):
+        u = self.current_user
+        if u['role'] != 'ho_admin':
+            self.redirect('/salon/dashboard'); return
+        db = get_db()
+        item = db.execute("""
+            SELECT oi.*, so.id as order_id FROM order_items oi
+            JOIN stock_orders so ON oi.order_id = so.id
+            WHERE oi.id=? AND so.status='delivered'
+        """, (item_id,)).fetchone()
+        if item:
+            db.execute("UPDATE order_items SET delivered_qty=quantity WHERE id=?", (item_id,))
+            db.commit()
+            order_id = item['order_id']
+            db.close()
+            self.redirect(f'/ho/order/{order_id}')
+        else:
+            db.close()
+            self.redirect('/ho/dashboard')
+
+
 # ─── Billing / Month Handlers ─────────────────────────────────────────────────
 
 class HOOrderDeleteHandler(BaseHandler):
@@ -3765,6 +3807,7 @@ def make_app():
             (r'/ho/order/(\d+)/edit',                   HOOrderEditHandler),
             (r'/ho/order/(\d+)/fulfill-outstanding',    HOFulfillOutstandingHandler),
             (r'/ho/order/(\d+)/delete',                 HOOrderDeleteHandler),
+            (r'/ho/order-item/(\d+)/mark-delivered',    HOMarkItemDeliveredHandler),
             (r'/ho/order/(\d+)',                        HOOrderViewHandler),
             (r'/ho/order/(\d+)/pack-items',             HOOrderPackItemsHandler),
             (r'/ho/products',                   AdminProductsHandler),
