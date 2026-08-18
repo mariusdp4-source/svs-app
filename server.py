@@ -2893,7 +2893,15 @@ class DeliveryHandler(BaseHandler):
               CASE WHEN COALESCE(packed, 0) = 0 THEN 1 ELSE 0 END,
               category, product_name
         """, (order_id,)).fetchall()
-        # Laaste opgeteldes per handoek-tipe (word gebruik as wenk vir hoeveel om af te lewer)
+        # Bestelde handdoek-hoeveelhede vir hierdie order
+        ordered_towels = {}
+        for r in db.execute(
+            "SELECT product_name, quantity FROM order_items WHERE order_id=? AND category='Handoeke'",
+            (order_id,)
+        ).fetchall():
+            ordered_towels[r['product_name']] = float(r['quantity'])
+
+        # Laaste opgeteldes per handoek-tipe (as wenk as niks bestel is nie)
         last_rows = db.execute("""
             SELECT towel_type, collected FROM towel_logs
             WHERE salon_id=? AND collected > 0
@@ -2907,6 +2915,7 @@ class DeliveryHandler(BaseHandler):
         self.render('salon/delivery.html', user=u, order=dict(order),
                     items=[dict(i) for i in items],
                     towel_types=TOWEL_TYPES,
+                    ordered_towels=ordered_towels,
                     last_collected=last_collected)
 
     @tornado.web.authenticated

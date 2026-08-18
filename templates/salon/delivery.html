@@ -174,16 +174,20 @@
       </thead>
       <tbody>
       {% for i, t in enumerate(towel_types) %}
+      {% set ordered = ordered_towels.get(t, 0) %}
       {% set hint = last_collected.get(t, 0) %}
+      {% set fill = ordered if ordered > 0 else hint %}
       <tr>
         <td style="font-weight:600; color:#3D1F5C;">{{ t }}</td>
         <td style="text-align:center;">
           <input type="number" name="tsent_{{ i }}"
-                 value="{{ hint }}" min="0" step="1"
+                 value="{{ int(fill) if fill == int(fill) else fill }}" min="0" step="1"
                  style="width:70px; text-align:center; border:1.5px solid #9B59B6;
                         border-radius:6px; padding:.28rem .35rem; font-size:.9rem;
                         font-weight:700; color:#7B3FA0;">
-          {% if hint %}
+          {% if ordered > 0 %}
+          <div style="font-size:.72rem; color:#9B59B6; margin-top:.15rem;">ordered: {{ int(ordered) }}</div>
+          {% elif hint %}
           <div style="font-size:.72rem; color:#AAA; margin-top:.15rem;">last: {{ int(hint) }}</div>
           {% end %}
         </td>
