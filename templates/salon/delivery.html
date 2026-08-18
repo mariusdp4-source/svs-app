@@ -214,22 +214,22 @@
 
     <!-- Tabs -->
     <div style="display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:.75rem;">
-      {% for cat in extra_cats %}
-      <button type="button" class="extra-tab-btn{% if loop.index == 1 %} active{% end %}"
+      {% for i, cat in enumerate(extra_cats) %}
+      <button type="button" class="extra-tab-btn{% if i == 0 %} active{% end %}"
               onclick="switchExtraTab('{{ cat }}')"
               style="padding:.3rem .85rem; border-radius:99px; font-size:.82rem; font-weight:600;
                      border:1.5px solid #1565C0; cursor:pointer;
-                     background:{% if loop.index == 1 %}#1565C0{% else %}#fff{% end %};
-                     color:{% if loop.index == 1 %}#fff{% else %}#1565C0{% end %};">
+                     background:{% if i == 0 %}#1565C0{% else %}#fff{% end %};
+                     color:{% if i == 0 %}#fff{% else %}#1565C0{% end %};">
         {{ cat }}
       </button>
       {% end %}
     </div>
 
     <!-- Product grids per tab -->
-    {% for cat in extra_cats %}
+    {% for i, cat in enumerate(extra_cats) %}
     <div id="extra-tab-{{ cat }}" class="extra-tab-panel"
-         style="display:{% if loop.index == 1 %}block{% else %}none{% end %};">
+         style="display:{% if i == 0 %}block{% else %}none{% end %};">
       {% if extra_products.get(cat) %}
       <input type="text" placeholder="Soek {{ cat }} produk..."
              oninput="filterExtraGrid('extra-grid-{{ cat }}', this.value)"

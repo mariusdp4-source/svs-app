@@ -177,7 +177,7 @@
             {{ item['note'] or '' }}
             {% if is_delivered and float(item.get('delivered_qty') or 0) < float(item['quantity']) %}
             <form method="POST" action="/ho/order-item/{{ item['id'] }}/mark-delivered"
-                  style="margin:.3rem 0 0;" onsubmit="return confirm('Mark {{ item[\"product_name\"] }} as fully delivered?')">
+                  style="margin:.3rem 0 0;" onsubmit="return confirm('Mark item as fully delivered?')">
               <button type="submit"
                       style="font-size:.7rem; background:#27AE60; color:#fff; border:none;
                              border-radius:6px; padding:.2rem .6rem; cursor:pointer; font-weight:700;">
