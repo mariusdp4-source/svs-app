@@ -208,8 +208,7 @@
   <div class="card" style="margin-bottom:1rem; padding:1.25rem 1.5rem; border-left:4px solid #1565C0;">
     <h3 style="color:#1565C0; margin-bottom:.4rem; font-size:.95rem;">➕ Extra Items Delivered</h3>
     <p style="font-size:.8rem; color:#7A6B8A; margin-bottom:.75rem;">
-      Kies produkte wat afgelewer is maar nie in die oorspronklike bestelling was nie.
-      Stel die hoeveelheid op meer as 0 om by te voeg.
+      Click a product card to add it. Use +/− to adjust the quantity. Selected items (in blue) will be included when you confirm delivery.
     </p>
 
     <!-- Tabs -->
@@ -231,7 +230,7 @@
     <div id="extra-tab-{{ cat }}" class="extra-tab-panel"
          style="display:{% if i == 0 %}block{% else %}none{% end %};">
       {% if extra_products.get(cat) %}
-      <input type="text" placeholder="Soek {{ cat }} produk..."
+      <input type="text" placeholder="Search {{ cat }} products..."
              oninput="filterExtraGrid('extra-grid-{{ cat }}', this.value)"
              style="width:100%; margin-bottom:.6rem; padding:.35rem .7rem; font-size:.85rem;
                     border:1.5px solid #B0C4DE; border-radius:8px; box-sizing:border-box;">
@@ -240,11 +239,13 @@
         {% for name in extra_products.get(cat, []) %}
         <div class="extra-card" data-name="{{ name }}" data-cat="{{ cat }}"
              data-search="{{ name.lower() }}"
+             onclick="toggleExtraCard(this)"
              style="border:1.5px solid #D5C8E8; border-radius:10px; padding:.6rem .75rem;
-                    background:#FAF8FF; transition:border-color .15s, background .15s;">
+                    background:#FAF8FF; cursor:pointer; transition:border-color .15s, background .15s;">
           <div style="font-size:.82rem; font-weight:600; color:#3D1F5C; margin-bottom:.45rem;
                       line-height:1.25;">{{ name }}</div>
-          <div style="display:flex; align-items:center; gap:.3rem; justify-content:center;">
+          <div style="display:flex; align-items:center; gap:.3rem; justify-content:center;"
+               onclick="event.stopPropagation()">
             <button type="button"
                     onclick="changeExtraQty(this,-1)"
                     style="width:26px; height:26px; border-radius:50%; border:1.5px solid #9B8AAA;
@@ -260,11 +261,14 @@
                            background:#fff; font-size:1rem; line-height:1; cursor:pointer;
                            color:#3D1F5C; font-weight:700;">+</button>
           </div>
+          <div class="extra-added-badge"
+               style="display:none; margin-top:.35rem; text-align:center; font-size:.72rem;
+                      color:#1565C0; font-weight:700;">✓ Added</div>
         </div>
         {% end %}
       </div>
       {% else %}
-      <p style="color:#9B8AAA; font-size:.85rem;">Geen produkte in hierdie kategorie nie.</p>
+      <p style="color:#9B8AAA; font-size:.85rem;">No products in this category.</p>
       {% end %}
     </div>
     {% end %}
@@ -418,15 +422,29 @@ function changeExtraQty(btn, delta) {
   highlightExtraCard(inp);
 }
 
+function toggleExtraCard(card) {
+  var inp = card.querySelector('.extra-qty-input');
+  var v = parseInt(inp.value || 0);
+  if (v === 0) {
+    inp.value = 1;
+  } else {
+    inp.value = 0;
+  }
+  highlightExtraCard(inp);
+}
+
 function highlightExtraCard(inp) {
   var card = inp.closest('.extra-card');
+  var badge = card.querySelector('.extra-added-badge');
   var v = parseInt(inp.value || 0);
   if (v > 0) {
     card.style.borderColor = '#1565C0';
     card.style.background  = '#EBF3FF';
+    if (badge) badge.style.display = 'block';
   } else {
     card.style.borderColor = '#D5C8E8';
     card.style.background  = '#FAF8FF';
+    if (badge) badge.style.display = 'none';
   }
 }
 
