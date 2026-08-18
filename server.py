@@ -2911,12 +2911,23 @@ class DeliveryHandler(BaseHandler):
         for r in last_rows:
             if r['towel_type'] not in last_collected:
                 last_collected[r['towel_type']] = r['collected']
+        # Produkte vir ekstra items (gebruik dieselfde kategorieë as order)
+        extra_cats = ['Salon', 'Cleaning', 'Perms', 'Tints', 'Retail']
+        extra_products = {}
+        for cat in extra_cats:
+            rows = db.execute(
+                "SELECT name FROM products WHERE category=? AND active=1 ORDER BY name COLLATE NOCASE",
+                (cat,)
+            ).fetchall()
+            extra_products[cat] = [r['name'] for r in rows]
         db.close()
         self.render('salon/delivery.html', user=u, order=dict(order),
                     items=[dict(i) for i in items],
                     towel_types=TOWEL_TYPES,
                     ordered_towels=ordered_towels,
-                    last_collected=last_collected)
+                    last_collected=last_collected,
+                    extra_products=extra_products,
+                    extra_cats=extra_cats)
 
     @tornado.web.authenticated
     def post(self, order_id):

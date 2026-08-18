@@ -204,17 +204,70 @@
   </div>
 
   <!-- ── Extra items delivered but not ordered ── -->
+  <div id="extraHiddenContainer"></div>
   <div class="card" style="margin-bottom:1rem; padding:1.25rem 1.5rem; border-left:4px solid #1565C0;">
     <h3 style="color:#1565C0; margin-bottom:.4rem; font-size:.95rem;">➕ Extra Items Delivered</h3>
     <p style="font-size:.8rem; color:#7A6B8A; margin-bottom:.75rem;">
-      Add items that were delivered but not in the original order.
+      Kies produkte wat afgelewer is maar nie in die oorspronklike bestelling was nie.
+      Stel die hoeveelheid op meer as 0 om by te voeg.
     </p>
-    <div id="extraItemsContainer"></div>
-    <button type="button" onclick="addExtraItem()"
-            style="background:#1565C0; color:#fff; border:none; border-radius:8px;
-                   padding:.4rem 1rem; font-size:.85rem; font-weight:600; cursor:pointer; margin-top:.4rem;">
-      + Add Item
-    </button>
+
+    <!-- Tabs -->
+    <div style="display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:.75rem;">
+      {% for cat in extra_cats %}
+      <button type="button" class="extra-tab-btn{% if loop.index == 1 %} active{% end %}"
+              onclick="switchExtraTab('{{ cat }}')"
+              style="padding:.3rem .85rem; border-radius:99px; font-size:.82rem; font-weight:600;
+                     border:1.5px solid #1565C0; cursor:pointer;
+                     background:{% if loop.index == 1 %}#1565C0{% else %}#fff{% end %};
+                     color:{% if loop.index == 1 %}#fff{% else %}#1565C0{% end %};">
+        {{ cat }}
+      </button>
+      {% end %}
+    </div>
+
+    <!-- Product grids per tab -->
+    {% for cat in extra_cats %}
+    <div id="extra-tab-{{ cat }}" class="extra-tab-panel"
+         style="display:{% if loop.index == 1 %}block{% else %}none{% end %};">
+      {% if extra_products.get(cat) %}
+      <input type="text" placeholder="Soek {{ cat }} produk..."
+             oninput="filterExtraGrid('extra-grid-{{ cat }}', this.value)"
+             style="width:100%; margin-bottom:.6rem; padding:.35rem .7rem; font-size:.85rem;
+                    border:1.5px solid #B0C4DE; border-radius:8px; box-sizing:border-box;">
+      <div id="extra-grid-{{ cat }}"
+           style="display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:.5rem;">
+        {% for name in extra_products.get(cat, []) %}
+        <div class="extra-card" data-name="{{ name }}" data-cat="{{ cat }}"
+             data-search="{{ name.lower() }}"
+             style="border:1.5px solid #D5C8E8; border-radius:10px; padding:.6rem .75rem;
+                    background:#FAF8FF; transition:border-color .15s, background .15s;">
+          <div style="font-size:.82rem; font-weight:600; color:#3D1F5C; margin-bottom:.45rem;
+                      line-height:1.25;">{{ name }}</div>
+          <div style="display:flex; align-items:center; gap:.3rem; justify-content:center;">
+            <button type="button"
+                    onclick="changeExtraQty(this,-1)"
+                    style="width:26px; height:26px; border-radius:50%; border:1.5px solid #9B8AAA;
+                           background:#fff; font-size:1rem; line-height:1; cursor:pointer;
+                           color:#3D1F5C; font-weight:700;">−</button>
+            <input type="number" class="extra-qty-input" value="0" min="0" step="1"
+                   oninput="highlightExtraCard(this)"
+                   style="width:48px; text-align:center; border:1.5px solid #C8B8DC;
+                          border-radius:6px; padding:.2rem; font-size:.9rem; font-weight:700;">
+            <button type="button"
+                    onclick="changeExtraQty(this,1)"
+                    style="width:26px; height:26px; border-radius:50%; border:1.5px solid #9B8AAA;
+                           background:#fff; font-size:1rem; line-height:1; cursor:pointer;
+                           color:#3D1F5C; font-weight:700;">+</button>
+          </div>
+        </div>
+        {% end %}
+      </div>
+      {% else %}
+      <p style="color:#9B8AAA; font-size:.85rem;">Geen produkte in hierdie kategorie nie.</p>
+      {% end %}
+    </div>
+    {% end %}
   </div>
 
   <!-- Sign off -->
@@ -332,30 +385,77 @@ function checkSignoff() {
   var msg = outstanding <= 0
     ? 'All ' + totalDelivered + ' units delivered. Confirm sign-off by ' + name.value.trim() + '?'
     : totalDelivered + ' of ' + totalOrdered + ' units delivered — ' + outstanding + ' outstanding.\nConfirm sign-off by ' + name.value.trim() + '?';
+  collectExtraItems();
   return confirm(msg);
 }
 
 // Init summary
 updateSummary();
 
-// ── Extra items ────────────────────────────────────────────
-var _extraCount = 0;
-var _cats = ['Salon','Cleaning','Perms','Tints','Retail'];
-function addExtraItem() {
-  var i = _extraCount++;
-  var div = document.createElement('div');
-  div.style.cssText = 'display:flex; gap:.5rem; align-items:center; margin-bottom:.5rem; flex-wrap:wrap;';
-  div.innerHTML =
-    '<input type="text" name="extra_name_' + i + '" placeholder="Product name" required ' +
-      'style="flex:2; min-width:160px; border:1.5px solid #1565C0; border-radius:6px; padding:.3rem .55rem; font-size:.875rem;">' +
-    '<select name="extra_cat_' + i + '" style="border:1.5px solid #1565C0; border-radius:6px; padding:.3rem .4rem; font-size:.85rem;">' +
-      _cats.map(function(c){ return '<option value="' + c + '">' + c + '</option>'; }).join('') +
-    '</select>' +
-    '<input type="number" name="extra_qty_' + i + '" value="1" min="1" step="1" ' +
-      'style="width:65px; text-align:center; border:1.5px solid #1565C0; border-radius:6px; padding:.3rem .3rem; font-size:.875rem; font-weight:700;">' +
-    '<button type="button" onclick="this.parentNode.remove()" ' +
-      'style="background:#E74C3C; color:#fff; border:none; border-radius:6px; padding:.3rem .65rem; font-size:.85rem; cursor:pointer;">✕</button>';
-  document.getElementById('extraItemsContainer').appendChild(div);
+// ── Extra items (product grid) ──────────────────────────────
+function switchExtraTab(cat) {
+  document.querySelectorAll('.extra-tab-panel').forEach(function(p){ p.style.display='none'; });
+  document.querySelectorAll('.extra-tab-btn').forEach(function(b){
+    b.style.background='#fff'; b.style.color='#1565C0';
+  });
+  var panel = document.getElementById('extra-tab-' + cat);
+  if (panel) panel.style.display='block';
+  event.currentTarget.style.background='#1565C0';
+  event.currentTarget.style.color='#fff';
+}
+
+function filterExtraGrid(gridId, query) {
+  var q = query.toLowerCase().trim();
+  document.querySelectorAll('#' + gridId + ' .extra-card').forEach(function(card){
+    card.style.display = (!q || card.dataset.search.includes(q)) ? '' : 'none';
+  });
+}
+
+function changeExtraQty(btn, delta) {
+  var inp = btn.parentNode.querySelector('.extra-qty-input');
+  var v = Math.max(0, parseInt(inp.value || 0) + delta);
+  inp.value = v;
+  highlightExtraCard(inp);
+}
+
+function highlightExtraCard(inp) {
+  var card = inp.closest('.extra-card');
+  var v = parseInt(inp.value || 0);
+  if (v > 0) {
+    card.style.borderColor = '#1565C0';
+    card.style.background  = '#EBF3FF';
+  } else {
+    card.style.borderColor = '#D5C8E8';
+    card.style.background  = '#FAF8FF';
+  }
+}
+
+// Collect extra items into hidden fields before submit
+document.getElementById('orderForm') && document.getElementById('orderForm').addEventListener('submit', function(){
+  collectExtraItems();
+});
+// Also hook onto the submit button (belt-and-suspenders)
+function collectExtraItems() {
+  var container = document.getElementById('extraHiddenContainer');
+  container.innerHTML = '';
+  var idx = 0;
+  document.querySelectorAll('.extra-card').forEach(function(card){
+    var inp = card.querySelector('.extra-qty-input');
+    var qty = parseInt(inp ? inp.value : 0) || 0;
+    if (qty > 0) {
+      var name = card.dataset.name;
+      var cat  = card.dataset.cat;
+      function h(n, v) {
+        var i = document.createElement('input');
+        i.type='hidden'; i.name=n; i.value=v;
+        container.appendChild(i);
+      }
+      h('extra_name_' + idx, name);
+      h('extra_cat_'  + idx, cat);
+      h('extra_qty_'  + idx, qty);
+      idx++;
+    }
+  });
 }
 </script>
 {% end %}
