@@ -290,11 +290,18 @@
 
   <div style="display:flex; gap:1rem; justify-content:space-between; flex-wrap:wrap;">
     <a href="/salon/dashboard" class="btn btn-secondary btn-lg">← Back</a>
-    <button type="submit" class="btn btn-lg"
-            onclick="return checkSignoff()"
-            style="background:#27AE60; border-color:#27AE60; color:#fff; padding:.7rem 2rem; font-size:1rem; font-weight:700;">
-      ✓ Confirm Delivery
-    </button>
+    <div style="display:flex; gap:.75rem; flex-wrap:wrap;">
+      <button type="button" class="btn btn-lg"
+              onclick="submitUpdateOrder()"
+              style="background:#1565C0; border-color:#1565C0; color:#fff; padding:.7rem 2rem; font-size:1rem; font-weight:700;">
+        🔄 Update Order
+      </button>
+      <button type="submit" class="btn btn-lg"
+              onclick="return checkSignoff()"
+              style="background:#27AE60; border-color:#27AE60; color:#fff; padding:.7rem 2rem; font-size:1rem; font-weight:700;">
+        ✓ Confirm Delivery
+      </button>
+    </div>
   </div>
 
 </form>
@@ -446,6 +453,19 @@ function highlightExtraCard(inp) {
     card.style.background  = '#FAF8FF';
     if (badge) badge.style.display = 'none';
   }
+}
+
+function submitUpdateOrder() {
+  collectExtraItems();
+  var extra = document.getElementById('extraHiddenContainer');
+  if (!extra || extra.children.length === 0) {
+    alert('No extra items selected. Please select at least one product to update.');
+    return;
+  }
+  var form = document.querySelector('form[method="POST"]');
+  var origAction = form.action;
+  form.action = origAction.replace(/\/deliver$/, '/deliver/add-items');
+  form.submit();
 }
 
 // Collect extra items into hidden fields before submit

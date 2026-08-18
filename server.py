@@ -2867,6 +2867,41 @@ class OrderDeleteItemHandler(BaseHandler):
 
 TOWEL_TYPES = ['Pink','Blue','Green','Maroon','Grey','White','Purple','Black','FC (Frailcare)','Perm']
 
+class DeliveryAddItemsHandler(BaseHandler):
+    """Voeg ekstra items by 'n bestelling sonder om dit af te lewer."""
+    @tornado.web.authenticated
+    def post(self, order_id):
+        u = self.current_user
+        if u['role'] == 'ho_admin':
+            self.redirect('/ho/dashboard'); return
+        db = get_db()
+        order = db.execute(
+            "SELECT * FROM stock_orders WHERE id=? AND salon_id=? AND status IN ('submitted','packed')",
+            (order_id, u['salon_id'])
+        ).fetchone()
+        if not order:
+            db.close(); self.redirect('/salon/dashboard'); return
+        added = 0
+        for i in range(20):
+            extra_name = self.get_argument(f'extra_name_{i}', '').strip()
+            extra_cat  = self.get_argument(f'extra_cat_{i}', 'Salon').strip()
+            try:
+                extra_qty = float(self.get_argument(f'extra_qty_{i}', '0') or 0)
+            except Exception:
+                extra_qty = 0.0
+            if extra_name and extra_qty > 0:
+                db.execute("""
+                    INSERT INTO order_items
+                      (order_id, product_name, category, quantity, packed, packed_qty,
+                       delivered_qty, note, is_custom, ho_added)
+                    VALUES (?,?,?,?,1,?,NULL,'',1,1)
+                """, (order_id, extra_name, extra_cat, extra_qty, extra_qty))
+                added += 1
+        if added:
+            db.commit()
+        db.close()
+        self.redirect(f'/salon/order/{order_id}/deliver')
+
 class DeliveryHandler(BaseHandler):
     """Wys aflewerings-verifikasie bladsy en verwerk die teken-af."""
     @tornado.web.authenticated
@@ -3799,6 +3834,7 @@ def make_app():
             (r'/salon/order/preview/(\d+)',         OrderPreviewHandler),
             (r'/salon/order/preview/(\d+)/confirm', OrderConfirmHandler),
             (r'/salon/order/item/(\d+)/delete',     OrderDeleteItemHandler),
+            (r'/salon/order/(\d+)/deliver/add-items', DeliveryAddItemsHandler),
             (r'/salon/order/(\d+)/deliver',         DeliveryHandler),
             (r'/salon/order/(\d+)/revert',          OrderRevertHandler),
             (r'/salon/order/(\d+)',             OrderViewHandler),
