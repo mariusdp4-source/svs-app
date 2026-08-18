@@ -73,7 +73,7 @@
       {% if user['role'] == 'ho_admin' %}
       <td>
         <form method="POST" action="/ho/order-item/{{ item['id'] }}/mark-delivered" style="margin:0;"
-              onsubmit="return confirm('Remove {{ item[\"product_name\"] }} from outstanding?')">
+              onsubmit="return confirm('Remove this item from outstanding?')">
           <button type="submit"
                   style="background:none; border:1px solid #C0392B; color:#C0392B;
                          border-radius:6px; padding:.15rem .5rem; font-size:.75rem;
