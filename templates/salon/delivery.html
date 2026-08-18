@@ -257,7 +257,7 @@ function toggleRow(itemId, ordQty, checked) {
     row.style.background = '#EAFAF1';
     row.style.opacity    = '1';
     if (lbl) lbl.style.textDecoration = '';
-    if (qtyIn) { qtyIn.value = ordQty; qtyIn.disabled = false; qtyIn.style.borderColor = '#A9DFBF'; }
+    if (qtyIn) { qtyIn.value = ordQty > 0 ? ordQty : (_orderedQtys[itemId] || 0); qtyIn.disabled = false; qtyIn.style.borderColor = '#A9DFBF'; }
   } else {
     row.style.background = '#FDEDEC';
     row.style.opacity    = '.7';
