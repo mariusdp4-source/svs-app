@@ -54,6 +54,7 @@
         <th style="text-align:right;">Ordered</th>
         <th style="text-align:right; color:#27AE60;">Delivered</th>
         <th style="text-align:right; color:#C0392B;">Outstanding</th>
+        {% if user['role'] == 'ho_admin' %}<th></th>{% end %}
       </tr>
     </thead>
     <tbody>
@@ -69,6 +70,17 @@
       <td style="text-align:right; color:#C0392B; font-weight:800;">
         {{ int(item['outstanding_qty']) if item['outstanding_qty'] == int(item['outstanding_qty']) else item['outstanding_qty'] }}
       </td>
+      {% if user['role'] == 'ho_admin' %}
+      <td>
+        <form method="POST" action="/ho/order-item/{{ item['id'] }}/mark-delivered" style="margin:0;"
+              onsubmit="return confirm('Remove {{ item[\"product_name\"] }} from outstanding?')">
+          <button type="submit"
+                  style="background:none; border:1px solid #C0392B; color:#C0392B;
+                         border-radius:6px; padding:.15rem .5rem; font-size:.75rem;
+                         cursor:pointer; font-weight:700;">✕ Remove</button>
+        </form>
+      </td>
+      {% end %}
     </tr>
     {% end %}
     </tbody>

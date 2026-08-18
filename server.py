@@ -187,7 +187,7 @@ class SalonDashboardHandler(BaseHandler):
         outstanding_last = []
         if last_delivery:
             rows = db.execute("""
-                SELECT product_name, category,
+                SELECT id, product_name, category,
                        quantity as ordered_qty,
                        COALESCE(delivered_qty, 0) as del_qty,
                        quantity - COALESCE(delivered_qty, 0) as outstanding_qty
