@@ -39,7 +39,7 @@
 
 <form method="POST" action="/salon/order/{{ order['id'] }}/deliver">
 
-  {% set categories = ['Salon','Perms','Tints','Retail'] %}
+  {% set categories = ['Salon','Cleaning','Perms','Tints','Retail'] %}
 
   {% for cat in categories %}
     {% set cat_items = [i for i in items if i['category'] == cat] %}
