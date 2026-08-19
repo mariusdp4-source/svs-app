@@ -741,6 +741,60 @@ class HOWeekHandler(BaseHandler):
                     tint_products=tint_products,
                     total_sup_idx=total_sup_idx)
 
+class HOOrderItemRemoveHandler(BaseHandler):
+    """Verwyder 'n item uit 'n afgelewerde bestelling."""
+    @tornado.web.authenticated
+    def post(self, item_id):
+        u = self.current_user
+        if u['role'] != 'ho_admin':
+            self.redirect('/salon/dashboard'); return
+        db = get_db()
+        row = db.execute("""
+            SELECT oi.order_id FROM order_items oi
+            JOIN stock_orders so ON oi.order_id = so.id
+            WHERE oi.id=?
+        """, (item_id,)).fetchone()
+        if row:
+            order_id = row['order_id']
+            db.execute("DELETE FROM order_items WHERE id=?", (item_id,))
+            db.commit()
+            db.close()
+            self.redirect(f'/ho/order/{order_id}')
+        else:
+            db.close()
+            self.redirect('/ho/dashboard')
+
+class HOOrderAddItemsHandler(BaseHandler):
+    """Voeg ekstra items by 'n afgelewerde bestelling."""
+    @tornado.web.authenticated
+    def post(self, order_id):
+        u = self.current_user
+        if u['role'] != 'ho_admin':
+            self.redirect('/salon/dashboard'); return
+        db = get_db()
+        order = db.execute(
+            "SELECT * FROM stock_orders WHERE id=?", (order_id,)
+        ).fetchone()
+        if not order:
+            db.close(); self.redirect('/ho/dashboard'); return
+        for i in range(20):
+            name = self.get_argument(f'extra_name_{i}', '').strip()
+            cat  = self.get_argument(f'extra_cat_{i}', 'Salon').strip()
+            try:
+                qty = float(self.get_argument(f'extra_qty_{i}', '0') or 0)
+            except Exception:
+                qty = 0.0
+            if name and qty > 0:
+                db.execute("""
+                    INSERT INTO order_items
+                      (order_id, product_name, category, quantity, packed, packed_qty,
+                       delivered_qty, note, is_custom, ho_added)
+                    VALUES (?,?,?,?,1,?,?,?,1,1)
+                """, (order_id, name, cat, qty, qty, qty, ''))
+        db.commit()
+        db.close()
+        self.redirect(f'/ho/order/{order_id}')
+
 class HOOrderViewHandler(BaseHandler):
     """HO-spesifieke bestel-pakbladsy met per-item aftik."""
     @tornado.web.authenticated
@@ -760,13 +814,22 @@ class HOOrderViewHandler(BaseHandler):
             "SELECT * FROM order_items WHERE order_id=? ORDER BY category, product_name",
             (order_id,)
         ).fetchall()
+        extra_cats = ['Salon', 'Cleaning', 'Perms', 'Tints', 'Retail']
+        extra_products = {}
+        for cat in extra_cats:
+            rows = db.execute(
+                "SELECT name FROM products WHERE category=? AND active=1 ORDER BY name COLLATE NOCASE",
+                (cat,)
+            ).fetchall()
+            extra_products[cat] = [r['name'] for r in rows]
         db.close()
         total  = sum(float(i['quantity']) for i in items if i['category'] != 'Handoeke')
         packed = sum(float(i['packed_qty'] or 0) for i in items
                      if i['packed'] and i['category'] != 'Handoeke')
         self.render('ho/order.html', user=u,
                     order=dict(order), items=[dict(i) for i in items],
-                    total=total, packed_count=packed)
+                    total=total, packed_count=packed,
+                    extra_products=extra_products, extra_cats=extra_cats)
 
 class HOOrderPackItemsHandler(BaseHandler):
     """Stoor per-item pakstatus; merk bestelling as 'gepak' as alles afgemerk is."""
@@ -3852,6 +3915,8 @@ def make_app():
             (r'/ho/week/([0-9-]+)/towels-print',    HOTowelPrintHandler),
             (r'/ho/week/([0-9-]+)/towels-word',     HOTowelWordHandler),
             (r'/ho/order/(\d+)/edit',                   HOOrderEditHandler),
+            (r'/ho/order/(\d+)/add-items',               HOOrderAddItemsHandler),
+            (r'/ho/order-item/(\d+)/remove',             HOOrderItemRemoveHandler),
             (r'/ho/order/(\d+)/fulfill-outstanding',    HOFulfillOutstandingHandler),
             (r'/ho/order/(\d+)/delete',                 HOOrderDeleteHandler),
             (r'/ho/order-item/(\d+)/mark-delivered',    HOMarkItemDeliveredHandler),

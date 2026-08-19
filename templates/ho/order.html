@@ -185,6 +185,16 @@
               </button>
             </form>
             {% end %}
+            {% if is_delivered %}
+            <form method="POST" action="/ho/order-item/{{ item['id'] }}/remove"
+                  style="margin:.3rem 0 0;" onsubmit="return confirm('Remove this item from the order?')">
+              <button type="submit"
+                      style="font-size:.7rem; background:#C0392B; color:#fff; border:none;
+                             border-radius:6px; padding:.2rem .6rem; cursor:pointer; font-weight:700;">
+                ✕ Remove
+              </button>
+            </form>
+            {% end %}
           </td>
         </tr>
         {% end %}
@@ -237,6 +247,120 @@
 
 {% if not is_delivered %}
 </form>
+{% end %}
+
+{% if is_delivered %}
+<!-- Add Products to delivered order -->
+<div id="hoExtraHidden"></div>
+<div class="card" style="margin-bottom:1rem; padding:1.25rem 1.5rem; border-left:4px solid #1565C0;">
+  <h3 style="color:#1565C0; margin-bottom:.4rem; font-size:.95rem;">➕ Add Products</h3>
+  <p style="font-size:.8rem; color:#7A6B8A; margin-bottom:.75rem;">
+    Click a product to add it (turns blue). Adjust quantity with +/−, then click Save.
+  </p>
+  <div style="display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:.75rem;">
+    {% for i, cat in enumerate(extra_cats) %}
+    <button type="button" onclick="switchHOTab('{{ cat }}')"
+            id="ho-tab-btn-{{ cat }}"
+            style="padding:.3rem .85rem; border-radius:99px; font-size:.82rem; font-weight:600;
+                   border:1.5px solid #1565C0; cursor:pointer;
+                   background:{% if i == 0 %}#1565C0{% else %}#fff{% end %};
+                   color:{% if i == 0 %}#fff{% else %}#1565C0{% end %};">
+      {{ cat }}
+    </button>
+    {% end %}
+  </div>
+  {% for i, cat in enumerate(extra_cats) %}
+  <div id="ho-tab-{{ cat }}" style="display:{% if i == 0 %}block{% else %}none{% end %};">
+    <input type="text" placeholder="Search {{ cat }}..."
+           oninput="filterHOGrid('ho-grid-{{ cat }}',this.value)"
+           style="width:100%; margin-bottom:.6rem; padding:.35rem .7rem; font-size:.85rem;
+                  border:1.5px solid #B0C4DE; border-radius:8px; box-sizing:border-box;">
+    <div id="ho-grid-{{ cat }}"
+         style="display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:.5rem;">
+      {% for name in extra_products.get(cat, []) %}
+      <div class="ho-extra-card" data-name="{{ name }}" data-cat="{{ cat }}"
+           data-search="{{ name.lower() }}"
+           onclick="toggleHOCard(this)"
+           style="border:1.5px solid #D5C8E8; border-radius:10px; padding:.55rem .7rem;
+                  background:#FAF8FF; cursor:pointer;">
+        <div style="font-size:.8rem; font-weight:600; color:#3D1F5C; margin-bottom:.4rem;">{{ name }}</div>
+        <div style="display:flex; align-items:center; gap:.3rem; justify-content:center;"
+             onclick="event.stopPropagation()">
+          <button type="button" onclick="changeHOQty(this,-1)"
+                  style="width:24px;height:24px;border-radius:50%;border:1.5px solid #9B8AAA;
+                         background:#fff;font-size:.95rem;cursor:pointer;font-weight:700;">−</button>
+          <input type="number" class="ho-qty-input" value="0" min="0" step="1"
+                 oninput="highlightHOCard(this)"
+                 style="width:44px;text-align:center;border:1.5px solid #C8B8DC;
+                        border-radius:6px;padding:.2rem;font-size:.88rem;font-weight:700;">
+          <button type="button" onclick="changeHOQty(this,1)"
+                  style="width:24px;height:24px;border-radius:50%;border:1.5px solid #9B8AAA;
+                         background:#fff;font-size:.95rem;cursor:pointer;font-weight:700;">+</button>
+        </div>
+      </div>
+      {% end %}
+    </div>
+  </div>
+  {% end %}
+  <button type="button" onclick="saveHOExtra()"
+          style="margin-top:1rem; background:#1565C0; color:#fff; border:none; border-radius:8px;
+                 padding:.5rem 1.4rem; font-size:.9rem; font-weight:700; cursor:pointer;">
+    💾 Save Added Products
+  </button>
+</div>
+<script>
+function switchHOTab(cat) {
+  document.querySelectorAll('[id^="ho-tab-"]:not([id^="ho-tab-btn"])').forEach(function(p){ p.style.display='none'; });
+  document.querySelectorAll('[id^="ho-tab-btn-"]').forEach(function(b){ b.style.background='#fff'; b.style.color='#1565C0'; });
+  document.getElementById('ho-tab-' + cat).style.display='block';
+  document.getElementById('ho-tab-btn-' + cat).style.background='#1565C0';
+  document.getElementById('ho-tab-btn-' + cat).style.color='#fff';
+}
+function filterHOGrid(gridId, q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('#' + gridId + ' .ho-extra-card').forEach(function(c){
+    c.style.display = (!q || c.dataset.search.includes(q)) ? '' : 'none';
+  });
+}
+function toggleHOCard(card) {
+  var inp = card.querySelector('.ho-qty-input');
+  inp.value = parseInt(inp.value||0) === 0 ? 1 : 0;
+  highlightHOCard(inp);
+}
+function changeHOQty(btn, d) {
+  var inp = btn.parentNode.querySelector('.ho-qty-input');
+  inp.value = Math.max(0, parseInt(inp.value||0) + d);
+  highlightHOCard(inp);
+}
+function highlightHOCard(inp) {
+  var card = inp.closest('.ho-extra-card');
+  var v = parseInt(inp.value||0);
+  card.style.borderColor = v > 0 ? '#1565C0' : '#D5C8E8';
+  card.style.background  = v > 0 ? '#EBF3FF' : '#FAF8FF';
+}
+function saveHOExtra() {
+  var container = document.getElementById('hoExtraHidden');
+  container.innerHTML = '';
+  var idx = 0;
+  document.querySelectorAll('.ho-extra-card').forEach(function(card){
+    var qty = parseInt(card.querySelector('.ho-qty-input').value||0);
+    if (qty > 0) {
+      function h(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; container.appendChild(i); }
+      h('extra_name_'+idx, card.dataset.name);
+      h('extra_cat_' +idx, card.dataset.cat);
+      h('extra_qty_' +idx, qty);
+      idx++;
+    }
+  });
+  if (idx === 0) { alert('No products selected.'); return; }
+  var form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/ho/order/{{ order["id"] }}/add-items';
+  container.querySelectorAll('input').forEach(function(i){ form.appendChild(i.cloneNode()); });
+  document.body.appendChild(form);
+  form.submit();
+}
+</script>
 {% end %}
 
 <!-- Navigation — OUTSIDE packForm -->
