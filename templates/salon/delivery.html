@@ -137,12 +137,20 @@
                           border-radius:6px; padding:.25rem .3rem; font-size:.875rem;
                           background:#fff;">
           </td>
-          <td>
+          <td style="display:flex; gap:.3rem; align-items:center;">
             <input type="text"
                    name="dnote_{{ item['id'] }}"
                    placeholder="{% if not_packed %}Not received{% elif partial_pack %}Short {{ int(short_qty) if short_qty == int(short_qty) else short_qty }} units...{% else %}Note...{% end %}"
-                   style="width:100%; border:1px solid #D5C8E8; border-radius:5px;
+                   style="flex:1; border:1px solid #D5C8E8; border-radius:5px;
                           padding:.28rem .55rem; font-size:.8rem;">
+            <form method="POST" action="/salon/order-item/{{ item['id'] }}/remove?order={{ order['id'] }}"
+                  style="margin:0; flex-shrink:0;"
+                  onsubmit="return confirm('Remove this item from the delivery?')">
+              <button type="submit"
+                      style="background:#C0392B; color:#fff; border:none; border-radius:6px;
+                             padding:.28rem .55rem; font-size:.78rem; cursor:pointer; font-weight:700;
+                             white-space:nowrap;">✕</button>
+            </form>
           </td>
         </tr>
         {% end %}

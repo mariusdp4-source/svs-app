@@ -2930,6 +2930,27 @@ class OrderDeleteItemHandler(BaseHandler):
 
 TOWEL_TYPES = ['Pink','Blue','Green','Maroon','Grey','White','Purple','Black','FC (Frailcare)','Perm']
 
+class SalonDeliveryItemRemoveHandler(BaseHandler):
+    """Verwyder 'n item van die afleweringsvorm."""
+    @tornado.web.authenticated
+    def post(self, item_id):
+        u = self.current_user
+        db = get_db()
+        row = db.execute("""
+            SELECT oi.order_id FROM order_items oi
+            JOIN stock_orders so ON oi.order_id = so.id
+            WHERE oi.id=? AND so.salon_id=? AND so.status IN ('submitted','packed')
+        """, (item_id, u['salon_id'])).fetchone()
+        if row:
+            order_id = row['order_id']
+            db.execute("DELETE FROM order_items WHERE id=?", (item_id,))
+            db.commit()
+            db.close()
+            self.redirect(f'/salon/order/{order_id}/deliver')
+        else:
+            db.close()
+            self.redirect('/salon/dashboard')
+
 class DeliveryAddItemsHandler(BaseHandler):
     """Voeg ekstra items by 'n bestelling sonder om dit af te lewer."""
     @tornado.web.authenticated
@@ -3898,6 +3919,7 @@ def make_app():
             (r'/salon/order/preview/(\d+)/confirm', OrderConfirmHandler),
             (r'/salon/order/item/(\d+)/delete',     OrderDeleteItemHandler),
             (r'/salon/order/(\d+)/deliver/add-items', DeliveryAddItemsHandler),
+            (r'/salon/order-item/(\d+)/remove',        SalonDeliveryItemRemoveHandler),
             (r'/salon/order/(\d+)/deliver',         DeliveryHandler),
             (r'/salon/order/(\d+)/revert',          OrderRevertHandler),
             (r'/salon/order/(\d+)',             OrderViewHandler),
