@@ -96,7 +96,10 @@
                    id="lbl-{{ item['id'] }}">
               {{ item['product_name'] }}
             </label>
-            {% if item.get('is_custom') %}
+            {% if item.get('ho_added') %}
+            <span style="font-size:.68rem; background:#1565C0; color:#fff;
+                         padding:.1rem .35rem; border-radius:99px; margin-left:.3rem;">📦 Added on delivery</span>
+            {% elif item.get('is_custom') %}
             <span style="font-size:.68rem; background:#F39C12; color:#fff;
                          padding:.1rem .35rem; border-radius:99px; margin-left:.3rem;">✱ Once-off</span>
             {% end %}
@@ -143,14 +146,11 @@
                    placeholder="{% if not_packed %}Not received{% elif partial_pack %}Short {{ int(short_qty) if short_qty == int(short_qty) else short_qty }} units...{% else %}Note...{% end %}"
                    style="flex:1; border:1px solid #D5C8E8; border-radius:5px;
                           padding:.28rem .55rem; font-size:.8rem;">
-            <form method="POST" action="/salon/order-item/{{ item['id'] }}/remove?order={{ order['id'] }}"
-                  style="margin:0; flex-shrink:0;"
-                  onsubmit="return confirm('Remove this item from the delivery?')">
-              <button type="submit"
-                      style="background:#C0392B; color:#fff; border:none; border-radius:6px;
-                             padding:.28rem .55rem; font-size:.78rem; cursor:pointer; font-weight:700;
-                             white-space:nowrap;">✕</button>
-            </form>
+            <button type="button"
+                    onclick="removeItem({{ item['id'] }})"
+                    style="background:#C0392B; color:#fff; border:none; border-radius:6px;
+                           padding:.28rem .55rem; font-size:.78rem; cursor:pointer; font-weight:700;
+                           white-space:nowrap; flex-shrink:0;">✕</button>
           </td>
         </tr>
         {% end %}
@@ -412,6 +412,15 @@ function checkSignoff() {
 updateSummary();
 
 // ── Extra items (product grid) ──────────────────────────────
+function removeItem(itemId) {
+  if (!confirm('Remove this item from the delivery?')) return;
+  var f = document.createElement('form');
+  f.method = 'POST';
+  f.action = '/salon/order-item/' + itemId + '/remove';
+  document.body.appendChild(f);
+  f.submit();
+}
+
 function switchExtraTab(cat) {
   document.querySelectorAll('.extra-tab-panel').forEach(function(p){ p.style.display='none'; });
   document.querySelectorAll('.extra-tab-btn').forEach(function(b){
