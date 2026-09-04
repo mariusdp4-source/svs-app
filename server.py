@@ -65,7 +65,7 @@ def order_window():
         return (now.date() + datetime.timedelta(days=1)).isoformat(), True
     elif wd in (2, 3):  # Wed or Thu
         return week_monday(), True
-    elif wd == 4 and now.hour < 11:  # Friday before 11:00
+    elif wd == 4 and now.hour < 17:  # Friday before 11:00
         return week_monday(), True
     else:
         return week_monday(), False
