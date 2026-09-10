@@ -178,6 +178,20 @@ class SalonDashboardHandler(BaseHandler):
             "SELECT * FROM stock_orders WHERE salon_id=? AND status='delivered' ORDER BY delivered_at DESC LIMIT 20",
             (u['salon_id'],)
         ).fetchall()
+        # Groepeer per maand vir folder-view
+        import datetime as _ddt
+        _cur_month = _ddt.date.today().strftime('%Y-%m')
+        _dm = {}
+        for _o in delivered_orders:
+            _pd = dict(_o).get('pack_date', '') or ''
+            try: _mk = _ddt.date.fromisoformat(_pd).strftime('%Y-%m')
+            except: _mk = 'unknown'
+            try: _ml = _ddt.date.fromisoformat(_pd).strftime('%B %Y')
+            except: _ml = _mk
+            if _mk not in _dm:
+                _dm[_mk] = {'label': _ml, 'key': _mk, 'orders': [], 'is_current': _mk == _cur_month}
+            _dm[_mk]['orders'].append(dict(_o))
+        delivered_months = list(_dm.values())
         # Uitstaande items van laaste aflewering
         last_delivery = db.execute("""
             SELECT id, pack_date, delivered_at FROM stock_orders
@@ -235,7 +249,7 @@ class SalonDashboardHandler(BaseHandler):
                 last_towel_sent[r['towel_type']] = float(r['sent'])
         db.close()
         self.render('salon/dashboard.html', user=u, draft=draft,
-                    active_orders=active_orders, delivered_orders=delivered_orders,
+                    active_orders=active_orders, delivered_orders=delivered_orders, delivered_months=delivered_months,
                     outstanding_last=outstanding_last,
                     last_delivery=dict(last_delivery) if last_delivery else None,
                     last_towel_logs=last_towel_logs,
@@ -503,6 +517,30 @@ class HODashboardHandler(BaseHandler):
                     'friday':    fri,
                     'label':     f"{fmt_date(mon)} – {fmt_date(fri)}",
                 })
+        # Groepeer weke per maand (vir dashboard folder-view)
+        months_dict = {}
+        for w in weeks:
+            import datetime as _dt
+            mon_d = _dt.date.fromisoformat(w['monday'])
+            mk = mon_d.strftime('%Y-%m')
+            ml = mon_d.strftime('%B %Y')
+            if mk not in months_dict:
+                months_dict[mk] = {'label': ml, 'key': mk, 'weeks': [], 'all_delivered': True, 'has_orders': False}
+            months_dict[mk]['weeks'].append(w)
+        for o in orders:
+            mon = week_monday(o['pack_date'])
+            import datetime as _dt2
+            mon_d2 = _dt2.date.fromisoformat(mon)
+            mk2 = mon_d2.strftime('%Y-%m')
+            if mk2 in months_dict:
+                months_dict[mk2]['has_orders'] = True
+                if dict(o).get('status') != 'delivered':
+                    months_dict[mk2]['all_delivered'] = False
+        for mk3 in months_dict:
+            if not months_dict[mk3]['has_orders']:
+                months_dict[mk3]['all_delivered'] = False
+        months = list(months_dict.values())
+
         # Huidige week se salon-status vir dashboard-kaarte
         cur_monday = week_monday()
         cur_sunday = week_sunday(cur_monday)
@@ -551,7 +589,7 @@ class HODashboardHandler(BaseHandler):
             ORDER BY o.submitted_at DESC
         """).fetchall()
         db.close()
-        self.render('ho/dashboard.html', user=u, weeks=weeks, pending=pending,
+        self.render('ho/dashboard.html', user=u, weeks=weeks, months=months, pending=pending,
                     cur_week_salons=cur_week_salons,
                     cur_monday=cur_monday, cur_friday=cur_friday)
 
@@ -1110,7 +1148,7 @@ class HOPackingListHandler(BaseHandler):
         monday = week_monday(pack_date)
         sunday = week_sunday(monday)
         db = get_db()
-        SALON_ORDER = ['AV','BB','BV','EL','HE','PO','RS','TR','VG','WK']
+        SALON_ORDER = ['AV','BB','BV','EL','HE','PO','RS','TR','VG','WG','WK']
         orders_raw = db.execute("""
             SELECT o.*, s.code as salon_code, s.name as salon_name
             FROM stock_orders o JOIN salons s ON o.salon_id = s.id
@@ -1894,7 +1932,7 @@ class HOTowelPrintHandler(BaseHandler):
         sunday = week_sunday(monday)
         friday = week_friday(monday)
         db = get_db()
-        SALON_ORDER = ['AV','BB','BV','EL','HE','PO','RS','TR','VG','WK']
+        SALON_ORDER = ['AV','BB','BV','EL','HE','PO','RS','TR','VG','WG','WK']
         items_raw = db.execute("""
             SELECT oi.product_name, oi.quantity, s.code as salon_code
             FROM order_items oi
@@ -1950,7 +1988,7 @@ class HOTowelWordHandler(BaseHandler):
         sunday = week_sunday(monday)
         friday = week_friday(monday)
         db = get_db()
-        SALON_ORDER = ['AV','BB','BV','EL','HE','PO','RS','TR','VG','WK']
+        SALON_ORDER = ['AV','BB','BV','EL','HE','PO','RS','TR','VG','WG','WK']
         items_raw = db.execute("""
             SELECT oi.product_name, oi.quantity, s.code as salon_code
             FROM order_items oi
@@ -2808,7 +2846,7 @@ class AdminProductDeleteHandler(BaseHandler):
         if u['role'] != 'ho_admin':
             self.redirect('/salon/dashboard'); return
         db = get_db()
-        db.execute("UPDATE products SET active=0 WHERE id=?", (product_id,))
+        db.execute("DELETE FROM products WHERE id=?", (product_id,))
         db.commit()
         db.close()
         self.redirect('/ho/products')
@@ -3281,12 +3319,16 @@ class HOStockTakeNewHandler(BaseHandler):
         retail_products   = [dict(p) for p in db.execute(
             "SELECT * FROM products WHERE category='Retail' AND active=1 ORDER BY name"
         ).fetchall()]
+        tint_products      = [dict(p) for p in db.execute(
+            "SELECT * FROM products WHERE category='Tints' AND active=1 ORDER BY name"
+        ).fetchall()]
         db.close()
         today = datetime.date.today().isoformat()
         self.render('ho/stocktake_new.html', user=u,
                     salon_products=salon_products,
                     cleaning_products=cleaning_products,
                     perm_products=perm_products,
+                        tint_products=tint_products,
                     retail_products=retail_products,
                     today=today)
 
@@ -3305,7 +3347,7 @@ class HOStockTakeNewHandler(BaseHandler):
         )
         stock_take_id = cur.lastrowid
         all_products = db.execute(
-            "SELECT * FROM products WHERE category IN ('Salon','Cleaning','Perms','Retail') AND active=1"
+            "SELECT * FROM products WHERE category IN ('Salon','Cleaning','Perms','Tints','Retail') AND active=1"
         ).fetchall()
         for p in all_products:
             try:

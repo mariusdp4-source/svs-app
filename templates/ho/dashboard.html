@@ -104,19 +104,51 @@
       </tr>
     </thead>
     <tbody>
-    {% for w in weeks %}
-    <tr>
-      <td>
-        <span style="font-weight:700; color:#3D1F5C;">{{ w['label'] }}</span>
-      </td>
-      <td style="text-align:right;">
-        <a href="/ho/week/{{ w['monday'] }}" class="btn btn-sm btn-ghost">Orders</a>
-        <a href="/ho/week/{{ w['monday'] }}/packing-list" class="btn btn-sm btn-secondary">↓ Packing List</a>
-      </td>
-    </tr>
+    {% for m in months %}
+      {% if m['all_delivered'] %}
+      <tr onclick="toggleMonth('{{ m['key'] }}')" style="cursor:pointer; background:#F5F0FF;">
+        <td colspan="2" style="padding:.6rem 1rem;">
+          <span id="arrow-{{ m['key'] }}" style="display:inline-block; transition:transform .2s; margin-right:.4rem; color:#9B7EC8;">▶</span>
+          <span style="font-weight:600; color:#5A3A7E;">📁 {{ m['label'] }}</span>
+          <span style="color:#B0A8BC; font-size:.8rem; margin-left:.5rem;">(all delivered)</span>
+        </td>
+      </tr>
+      {% for w in m['weeks'] %}
+      <tr id="week-{{ m['key'] }}-{{ w['monday'] }}" class="month-row-{{ m['key'] }}" style="display:none; background:#FAF8FF;">
+        <td style="padding-left:2.5rem;">
+          <span style="font-weight:500; color:#6B4F9E;">{{ w['label'] }}</span>
+        </td>
+        <td style="text-align:right;">
+          <a href="/ho/week/{{ w['monday'] }}" class="btn btn-sm btn-ghost">Orders</a>
+          <a href="/ho/week/{{ w['monday'] }}/packing-list" class="btn btn-sm btn-secondary">↓ Packing List</a>
+        </td>
+      </tr>
+      {% end %}
+      {% else %}
+      {% for w in m['weeks'] %}
+      <tr>
+        <td>
+          <span style="font-weight:700; color:#3D1F5C;">{{ w['label'] }}</span>
+        </td>
+        <td style="text-align:right;">
+          <a href="/ho/week/{{ w['monday'] }}" class="btn btn-sm btn-ghost">Orders</a>
+          <a href="/ho/week/{{ w['monday'] }}/packing-list" class="btn btn-sm btn-secondary">↓ Packing List</a>
+        </td>
+      </tr>
+      {% end %}
+      {% end %}
     {% end %}
     </tbody>
   </table>
+  <script>
+  function toggleMonth(key) {
+    var rows = document.querySelectorAll('.month-row-' + key);
+    var arrow = document.getElementById('arrow-' + key);
+    var hidden = rows.length > 0 && rows[0].style.display === 'none';
+    rows.forEach(function(r){ r.style.display = hidden ? '' : 'none'; });
+    if (arrow) arrow.style.transform = hidden ? 'rotate(90deg)' : '';
+  }
+  </script>
   {% else %}
   <p class="text-muted">No orders received yet.</p>
   {% end %}

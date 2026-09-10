@@ -158,19 +158,36 @@
       <th style="text-align:right;"></th>
     </tr></thead>
     <tbody>
-    {% for o in delivered_orders %}
-    <tr>
-      <td style="font-weight:600;">{{ o['pack_date'] }}</td>
-      <td style="color:#1E8449; font-size:.875rem; font-weight:600;">
-        ✅ {{ o['delivered_at'][:10] if o['delivered_at'] else '–' }}
+    {% for m in delivered_months %}
+    <tr data-mk="{{ m['key'] }}" onclick="toggleDM(this.dataset.mk)" style="cursor:pointer; background:#F5F0FF;">
+      <td colspan="4" style="padding:.55rem 1rem;">
+        <span id="dmarrow-{{ m['key'] }}" style="display:inline-block; transition:transform .2s; margin-right:.4rem; color:#9B7EC8;">{% if m['is_current'] %}▼{% else %}▶{% end %}</span>
+        <span style="font-weight:600; color:#5A3A7E;">📁 {{ m['label'] }}</span>
       </td>
-      <td style="font-size:.875rem; color:#7A6B8A;">{{ o['signed_by'] or '–' }}</td>
+    </tr>
+    {% for o in m['orders'] %}
+    <tr class="dm-row-{{ m['key'] }}" style="{% if not m['is_current'] %}display:none;{% end %}background:#FAF8FF;">
+      <td style="font-weight:600; padding-left:2rem;">{{ o['pack_date'] }}</td>
+      <td style="color:#1E8449; font-size:.875rem; font-weight:600;">
+        ☑ {{ o['delivered_at'][:10] if o['delivered_at'] else '-' }}
+      </td>
+      <td style="font-size:.875rem; color:#7A6B8A;">{{ o['signed_by'] or '-' }}</td>
       <td style="text-align:right;">
         <a href="/salon/order/{{ o['id'] }}" class="btn btn-sm btn-ghost">View</a>
       </td>
     </tr>
     {% end %}
+    {% end %}
     </tbody>
+  <script>
+  function toggleDM(key) {
+    var rows = document.querySelectorAll('.dm-row-' + key);
+    var arrow = document.getElementById('dmarrow-' + key);
+    var hidden = rows.length > 0 && rows[0].style.display === 'none';
+    rows.forEach(function(r){ r.style.display = hidden ? '' : 'none'; });
+    if (arrow) arrow.style.transform = hidden ? 'rotate(90deg)' : '';
+  }
+  </script>
   </table>
   {% else %}
   <p class="text-muted">No delivered orders yet.</p>

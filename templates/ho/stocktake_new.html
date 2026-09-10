@@ -50,6 +50,9 @@
     <button type="button" class="tab-btn" onclick="switchTab('perms',this)">
       Perms
     </button>
+      <button type="button" class="tab-btn" onclick="switchTab('tints',this)">
+        Tints
+      </button>
     <button type="button" class="tab-btn" onclick="switchTab('retail',this)">
       Retail
     </button>
@@ -154,7 +157,41 @@
     </table>
   </div>
 
-  <!-- Retail tab -->
+  
+<!-- Tints tab -->
+<div class="tab-panel card" id="tab-tints">
+  <input type="text" class="search-input" placeholder="Search Tints product..."
+         oninput="filterRows('tints-body', this.value)" style="margin-bottom:.75rem;">
+  <table class="table" style="table-layout:fixed; width:100%;">
+    <colgroup>
+      <col style="width:75%">
+      <col style="width:25%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th style="text-align:center;">Quantity</th>
+      </tr>
+    </thead>
+    <tbody id="tints-body">
+    {% for p in tint_products %}
+    <tr data-search="{{ p['name'].lower() }}">
+      <td style="font-weight:500; color:#2C1A3E;">{{ p['name'] }}</td>
+      <td style="text-align:center;">
+        <input type="number" name="qty_{{ p['id'] }}" value="0" min="0" step="1"
+               class="st-qty" data-cat="tints"
+               style="width:80px; text-align:center; border:1.5px solid #D5C8E8;
+                      border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700;
+                      color:#3D1F5C;"
+               oninput="updateCount(this)">
+      </td>
+    </tr>
+    {% end %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Retail tab -->
   <div class="tab-panel card" id="tab-retail">
     <input type="text" class="search-input" placeholder="Search Retail product..."
            oninput="filterRows('retail-body', this.value)" style="margin-bottom:.75rem;">
