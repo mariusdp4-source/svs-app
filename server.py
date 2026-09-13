@@ -3157,6 +3157,19 @@ class DeliveryHandler(BaseHandler):
             "UPDATE stock_orders SET status='delivered', delivered_at=datetime('now'), signed_by=? WHERE id=?",
             (signed_by, order_id)
         )
+        # Trek gepakte hoeveelhede af van stooorkamer
+        packed_items = db.execute(
+            "SELECT product_name, packed_qty FROM order_items WHERE order_id=? AND packed_qty > 0",
+            (order_id,)
+        ).fetchall()
+        for _item in packed_items:
+            db.execute("""
+                INSERT INTO storeroom_stock (product_name, quantity, last_updated)
+                VALUES (?, MAX(0, -?), datetime('now'))
+                ON CONFLICT(product_name) DO UPDATE SET
+                    quantity = MAX(0, quantity - ?),
+                    last_updated = datetime('now')
+            """, (_item['product_name'], _item['packed_qty'], _item['packed_qty']))
         db.commit()
         db.close()
         self.redirect('/salon/dashboard')
@@ -3295,8 +3308,36 @@ class HOStockTakeListHandler(BaseHandler):
             GROUP BY st.id
             ORDER BY st.taken_at DESC LIMIT 100
         """).fetchall()
+        # Produk oorsig data
+        import math as _math
+        all_products = [dict(p) for p in db.execute(
+            "SELECT * FROM products WHERE active=1 ORDER BY category, name"
+        ).fetchall()]
+        avg_rows = db.execute("""
+            SELECT oi.product_name,
+                   ROUND(CAST(SUM(oi.quantity) AS FLOAT) / (
+                       SELECT COUNT(DISTINCT pack_date) FROM stock_orders WHERE status='delivered'
+                   ), 1) as weekly_avg
+            FROM order_items oi
+            JOIN stock_orders so ON oi.order_id = so.id
+            WHERE so.status='delivered'
+            GROUP BY oi.product_name
+        """).fetchall()
+        avg_map = {r['product_name']: r['weekly_avg'] for r in avg_rows}
+        min_rows = db.execute("SELECT id, name, COALESCE(min_stock,0) as min_stock FROM products WHERE active=1").fetchall()
+        min_map = {r['name']: r['min_stock'] if r['min_stock'] else _math.ceil((avg_map.get(r['name']) or 0)*2) for r in min_rows}
+        last_soh = {}
+        last_soh_rows = db.execute(
+            "SELECT product_name, quantity FROM storeroom_stock"
+        ).fetchall()
+        for r in last_soh_rows:
+            last_soh[r['product_name']] = r['quantity']
+        cats = ['Salon','Cleaning','Perms','Tints','Retail']
+        cat_products = [[c, [p for p in all_products if p['category']==c]] for c in cats]
         db.close()
-        self.render('ho/stocktake_list.html', user=u, takes=[dict(t) for t in takes_raw])
+        self.render('ho/stocktake_list.html', user=u, takes=[dict(t) for t in takes_raw],
+                    cat_products=cat_products, avg_map=avg_map, min_map=min_map,
+                    last_soh=last_soh, cats=cats)
 
 
 class HOStockTakeNewHandler(BaseHandler):
@@ -3322,6 +3363,27 @@ class HOStockTakeNewHandler(BaseHandler):
         tint_products      = [dict(p) for p in db.execute(
             "SELECT * FROM products WHERE category='Tints' AND active=1 ORDER BY name"
         ).fetchall()]
+        # Weeklikse gemiddeld per produk (oor alle delivered weke)
+        avg_rows = db.execute("""
+            SELECT oi.product_name,
+                   ROUND(CAST(SUM(oi.quantity) AS FLOAT) / (
+                       SELECT COUNT(DISTINCT pack_date)
+                       FROM stock_orders WHERE status='delivered'
+                   ), 1) as weekly_avg
+            FROM order_items oi
+            JOIN stock_orders so ON oi.order_id = so.id
+            WHERE so.status = 'delivered'
+            GROUP BY oi.product_name
+        """).fetchall()
+        avg_map = {r['product_name']: r['weekly_avg'] for r in avg_rows}
+        import math as _math
+        min_rows = db.execute("SELECT id, name, COALESCE(min_stock,0) as min_stock FROM products WHERE active=1").fetchall()
+        min_map = {r['name']: r['min_stock'] if r['min_stock'] else _math.ceil((avg_map.get(r['name']) or 0) * 2) for r in min_rows}
+        min_id_map = {r['name']: r['id'] for r in min_rows}
+        import math as _math
+        min_rows = db.execute("SELECT id, name, COALESCE(min_stock,0) as min_stock FROM products WHERE active=1").fetchall()
+        min_map = {r['name']: r['min_stock'] if r['min_stock'] else _math.ceil((avg_map.get(r['name']) or 0) * 2) for r in min_rows}
+        min_id_map = {r['name']: r['id'] for r in min_rows}
         db.close()
         today = datetime.date.today().isoformat()
         self.render('ho/stocktake_new.html', user=u,
@@ -3330,7 +3392,9 @@ class HOStockTakeNewHandler(BaseHandler):
                     perm_products=perm_products,
                         tint_products=tint_products,
                     retail_products=retail_products,
-                    today=today)
+                    today=today,
+                        avg_map=avg_map,
+                        min_map=min_map)
 
     @tornado.web.authenticated
     def post(self):
@@ -3346,6 +3410,31 @@ class HOStockTakeNewHandler(BaseHandler):
             (taken_at, taken_by, notes)
         )
         stock_take_id = cur.lastrowid
+        # Stel storeroom_stock op getelde waardes
+        for _p in all_products:
+            _pid = _p['id']
+            _pname = _p['name']
+            try:
+                _soh = float(self.get_argument(f'qty_{_pid}', 0) or 0)
+            except:
+                _soh = 0.0
+            db.execute("""
+                INSERT INTO storeroom_stock (product_name, quantity, last_updated)
+                VALUES (?, ?, datetime('now'))
+                ON CONFLICT(product_name) DO UPDATE SET
+                    quantity = ?, last_updated = datetime('now')
+            """, (_pname, _soh, _soh))
+
+        # Stoor min_stock waardes
+        for key in self.request.arguments:
+            if key.startswith('min_'):
+                try:
+                    pid = int(key[4:])
+                    val = int(self.get_argument(key, 0))
+                    db.execute("UPDATE products SET min_stock=? WHERE id=?", (val, pid))
+                except:
+                    pass
+        db.commit()
         all_products = db.execute(
             "SELECT * FROM products WHERE category IN ('Salon','Cleaning','Perms','Tints','Retail') AND active=1"
         ).fetchall()

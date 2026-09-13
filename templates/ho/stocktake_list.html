@@ -4,53 +4,87 @@
 <div class="page-header">
   <div>
     <h2>📦 Stock Take</h2>
-    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem">
-      Record and save HO stock — Salon, Perms and Retail
-    </p>
+    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem;">Huidige minimum vlakke en laaste stocktelling</p>
   </div>
   <a href="/ho/stocktake/new" class="btn btn-primary">+ New Stock Take</a>
 </div>
 
-<div class="card">
-  {% if takes %}
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Date</th>
-        <th>Taken By</th>
-        <th>Notes</th>
-        <th style="text-align:center">Items</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for t in takes %}
-    <tr>
-      <td style="font-weight:600; color:#3D1F5C;">{{ t['taken_at'] }}</td>
-      <td>{{ t['taken_by'] or '–' }}</td>
-      <td style="color:#7A6B8A; font-size:.88rem;">{{ t['notes'] or '–' }}</td>
-      <td style="text-align:center">
-        <span style="background:#EAE2F4; color:#3D1F5C; border-radius:12px;
-                     padding:.15rem .6rem; font-size:.85rem; font-weight:600;">
-          {{ t.get('item_count', '–') }}
-        </span>
-      </td>
-      <td style="text-align:right; white-space:nowrap;">
-        <a href="/ho/stocktake/{{ t['id'] }}" class="btn btn-sm btn-ghost">View</a>
-        <a href="/ho/stocktake/{{ t['id'] }}/xlsx" class="btn btn-sm btn-secondary">↓ Excel</a>
-        <a href="/ho/stocktake/{{ t['id'] }}/pdf" class="btn btn-sm btn-secondary">↓ PDF</a>
-      </td>
-    </tr>
+<div class="card" style="margin-bottom:1.5rem;">
+  <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1rem;">
+    {% for pair in cat_products %}
+    <button class="tab-btn{% if pair[0] == cat_products[0][0] %} active{% end %}"
+            onclick="switchTab('{{ pair[0] }}')" id="tab-btn-{{ pair[0] }}">{{ pair[0] }}</button>
     {% end %}
-    </tbody>
-  </table>
-  {% else %}
-  <div style="text-align:center; padding:3rem; color:#9B8CAE;">
-    <div style="font-size:3rem; margin-bottom:1rem;">📦</div>
-    <p style="font-size:1.1rem; font-weight:600; color:#7B3FA0;">No stock takes recorded yet</p>
-    <p style="margin-top:.5rem;">Click "New Stock Take" to get started.</p>
-    <a href="/ho/stocktake/new" class="btn btn-primary" style="margin-top:1rem;">+ New Stock Take</a>
+  </div>
+
+  {% for pair in cat_products %}
+  <div id="tab-{{ pair[0] }}" class="tab-panel" style="{% if pair[0] != cat_products[0][0] %}display:none;{% else %}display:block;{% end %}">
+    <table class="table" style="width:100%; table-layout:fixed;">
+      <colgroup>
+        <col style="width:40%"><col style="width:18%"><col style="width:18%"><col style="width:18%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th style="text-align:center; color:#9B7EC8; font-size:.85rem;">Avg/week</th>
+          <th style="text-align:center;">Min Amount</th>
+          <th style="text-align:center; white-space:nowrap;">Stock on Hand</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pair[1] %}
+        <tr>
+          <td style="font-weight:500; color:#2C1A3E;">{{ p['name'] }}</td>
+          <td style="text-align:center; color:#9B7EC8; font-size:.9rem; font-weight:500;">{{ avg_map.get(p['name'], '-') }}</td>
+          <td style="text-align:center; font-weight:600; color:#2C1A3E;">{{ min_map.get(p['name'], 0) }}</td>
+          <td style="text-align:center; color:#3D1F5C; font-weight:600;">{{ last_soh.get(p['name'], '-') }}</td>
+        </tr>
+        {% end %}
+      </tbody>
+    </table>
   </div>
   {% end %}
 </div>
+
+{% if takes %}
+<div class="card">
+  <h3 style="margin-bottom:1rem; color:#3D1F5C; font-size:1rem;">Vorige Stocktellings</h3>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Date</th><th>Taken By</th><th>Notes</th>
+        <th style="text-align:center">Items</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in takes %}
+      <tr>
+        <td style="font-weight:600; color:#3D1F5C;">{{ t['taken_at'] }}</td>
+        <td>{{ t['taken_by'] or '-' }}</td>
+        <td style="color:#7A6B8A; font-size:.88rem;">{{ t['notes'] or '-' }}</td>
+        <td style="text-align:center;">
+          <span style="background:#EAE2F4; color:#3D1F5C; border-radius:12px; padding:.15rem .6rem; font-size:.85rem; font-weight:600;">
+            {{ t.get('item_count', '-') }}
+          </span>
+        </td>
+        <td style="text-align:right; white-space:nowrap;">
+          <a href="/ho/stocktake/{{ t['id'] }}" class="btn btn-sm btn-ghost">View</a>
+          <a href="/ho/stocktake/{{ t['id'] }}/xlsx" class="btn btn-sm btn-secondary">| Excel</a>
+          <a href="/ho/stocktake/{{ t['id'] }}/pdf" class="btn btn-sm btn-secondary">| PDF</a>
+        </td>
+      </tr>
+      {% end %}
+    </tbody>
+  </table>
+</div>
+{% end %}
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.style.display='none');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+name).style.display='block';
+  document.getElementById('tab-btn-'+name).classList.add('active');
+}
+</script>
 {% end %}

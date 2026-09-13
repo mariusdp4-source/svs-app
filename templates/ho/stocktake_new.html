@@ -64,23 +64,28 @@
            oninput="filterRows('salon-body', this.value)" style="margin-bottom:.75rem;">
     <table class="table" style="table-layout:fixed; width:100%;">
       <colgroup>
-        <col style="width:75%">
-        <col style="width:25%">
-      </colgroup>
+<col style="width:28%">
+<col style="width:18%">
+<col style="width:18%">
+<col style="width:18%">
+</colgroup>
       <thead>
         <tr>
           <th>Product</th>
-          <th style="text-align:center;">Quantity</th>
+        <th style="text-align:center; color:#9B7EC8; font-size:.85rem;">Avg/week</th>
+        <th style="text-align:center;">Min Amount</th><th style="text-align:center; white-space:nowrap;">Stock on Hand</th>
         </tr>
       </thead>
       <tbody id="salon-body">
       {% for p in salon_products %}
       <tr data-search="{{ p['name'].lower() }}">
         <td style="font-weight:500; color:#2C1A3E;">{{ p['name'] }}</td>
-        <td style="text-align:center;">
-          <input type="number" name="qty_{{ p['id'] }}" value="0" min="0" step="1"
+      <td style="text-align:center; color:#9B7EC8; font-size:.9rem; font-weight:500;">{{ avg_map.get(p['name'], '-') }}</td>
+                        <td style="text-align:center;"><input type="number" name="min_{{ p['id'] }}" value="{{ min_map.get(p['name'], 0) }}" style="width:90%; text-align:center; border:1.5px solid #D5C8E8; border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700; color:#3D1F5C;"></td>
+                <td>
+                <input type="number" name="qty_{{ p['id'] }}" value="0" min="0" step="1"
                  class="st-qty" data-cat="salon"
-                 style="width:80px; text-align:center; border:1.5px solid #D5C8E8;
+                 style="width:90%; text-align:center; border:1.5px solid #D5C8E8;
                         border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700;
                         color:#3D1F5C;"
                  oninput="updateCount(this)">
@@ -97,23 +102,28 @@
            oninput="filterRows('cleaning-body', this.value)" style="margin-bottom:.75rem;">
     <table class="table" style="table-layout:fixed; width:100%;">
       <colgroup>
-        <col style="width:75%">
-        <col style="width:25%">
-      </colgroup>
+<col style="width:28%">
+<col style="width:18%">
+<col style="width:18%">
+<col style="width:18%">
+</colgroup>
       <thead>
         <tr>
           <th>Product</th>
-          <th style="text-align:center;">Quantity</th>
+        <th style="text-align:center; color:#9B7EC8; font-size:.85rem;">Avg/week</th>
+        <th style="text-align:center;">Min Amount</th><th style="text-align:center; white-space:nowrap;">Stock on Hand</th>
         </tr>
       </thead>
       <tbody id="cleaning-body">
       {% for p in cleaning_products %}
       <tr data-search="{{ p['name'].lower() }}">
         <td style="font-weight:500; color:#2C1A3E;">{{ p['name'] }}</td>
-        <td style="text-align:center;">
-          <input type="number" name="qty_{{ p['id'] }}" value="0" min="0" step="1"
+      <td style="text-align:center; color:#9B7EC8; font-size:.9rem; font-weight:500;">{{ avg_map.get(p['name'], '-') }}</td>
+                        <td style="text-align:center;"><input type="number" name="min_{{ p['id'] }}" value="{{ min_map.get(p['name'], 0) }}" style="width:90%; text-align:center; border:1.5px solid #D5C8E8; border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700; color:#3D1F5C;"></td>
+                <td>
+                <input type="number" name="qty_{{ p['id'] }}" value="0" min="0" step="1"
                  class="st-qty" data-cat="cleaning"
-                 style="width:80px; text-align:center; border:1.5px solid #D5C8E8;
+                 style="width:90%; text-align:center; border:1.5px solid #D5C8E8;
                         border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700;
                         color:#3D1F5C;"
                  oninput="updateCount(this)">
@@ -130,23 +140,28 @@
            oninput="filterRows('perms-body', this.value)" style="margin-bottom:.75rem;">
     <table class="table" style="table-layout:fixed; width:100%;">
       <colgroup>
-        <col style="width:75%">
-        <col style="width:25%">
-      </colgroup>
+<col style="width:28%">
+<col style="width:18%">
+<col style="width:18%">
+<col style="width:18%">
+</colgroup>
       <thead>
         <tr>
           <th>Product</th>
-          <th style="text-align:center;">Quantity</th>
+        <th style="text-align:center; color:#9B7EC8; font-size:.85rem;">Avg/week</th>
+        <th style="text-align:center;">Min Amount</th><th style="text-align:center; white-space:nowrap;">Stock on Hand</th>
         </tr>
       </thead>
       <tbody id="perms-body">
       {% for p in perm_products %}
       <tr data-search="{{ p['name'].lower() }}">
         <td style="font-weight:500; color:#2C1A3E;">{{ p['name'] }}</td>
-        <td style="text-align:center;">
-          <input type="number" name="qty_{{ p['id'] }}" value="0" min="0" step="1"
+      <td style="text-align:center; color:#9B7EC8; font-size:.9rem; font-weight:500;">{{ avg_map.get(p['name'], '-') }}</td>
+                        <td style="text-align:center;"><input type="number" name="min_{{ p['id'] }}" value="{{ min_map.get(p['name'], 0) }}" style="width:90%; text-align:center; border:1.5px solid #D5C8E8; border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700; color:#3D1F5C;"></td>
+                <td>
+                <input type="number" name="qty_{{ p['id'] }}" value="0" min="0" step="1"
                  class="st-qty" data-cat="perms"
-                 style="width:80px; text-align:center; border:1.5px solid #D5C8E8;
+                 style="width:90%; text-align:center; border:1.5px solid #D5C8E8;
                         border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700;
                         color:#3D1F5C;"
                  oninput="updateCount(this)">
@@ -164,23 +179,28 @@
          oninput="filterRows('tints-body', this.value)" style="margin-bottom:.75rem;">
   <table class="table" style="table-layout:fixed; width:100%;">
     <colgroup>
-      <col style="width:75%">
-      <col style="width:25%">
-    </colgroup>
+<col style="width:28%">
+<col style="width:18%">
+<col style="width:18%">
+<col style="width:18%">
+</colgroup>
     <thead>
       <tr>
         <th>Product</th>
-        <th style="text-align:center;">Quantity</th>
+        <th style="text-align:center; color:#9B7EC8; font-size:.85rem;">Avg/week</th>
+        <th style="text-align:center;">Min Amount</th><th style="text-align:center; white-space:nowrap;">Stock on Hand</th>
       </tr>
     </thead>
     <tbody id="tints-body">
     {% for p in tint_products %}
     <tr data-search="{{ p['name'].lower() }}">
       <td style="font-weight:500; color:#2C1A3E;">{{ p['name'] }}</td>
-      <td style="text-align:center;">
-        <input type="number" name="qty_{{ p['id'] }}" value="0" min="0" step="1"
+      <td style="text-align:center; color:#9B7EC8; font-size:.9rem; font-weight:500;">{{ avg_map.get(p['name'], '-') }}</td>
+                      <td style="text-align:center;"><input type="number" name="min_{{ p['id'] }}" value="{{ min_map.get(p['name'], 0) }}" style="width:90%; text-align:center; border:1.5px solid #D5C8E8; border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700; color:#3D1F5C;"></td>
+                <td>
+                <input type="number" name="qty_{{ p['id'] }}" value="0" min="0" step="1"
                class="st-qty" data-cat="tints"
-               style="width:80px; text-align:center; border:1.5px solid #D5C8E8;
+               style="width:90%; text-align:center; border:1.5px solid #D5C8E8;
                       border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700;
                       color:#3D1F5C;"
                oninput="updateCount(this)">
@@ -197,23 +217,28 @@
            oninput="filterRows('retail-body', this.value)" style="margin-bottom:.75rem;">
     <table class="table" style="table-layout:fixed; width:100%;">
       <colgroup>
-        <col style="width:75%">
-        <col style="width:25%">
-      </colgroup>
+<col style="width:28%">
+<col style="width:18%">
+<col style="width:18%">
+<col style="width:18%">
+</colgroup>
       <thead>
         <tr>
           <th>Product</th>
-          <th style="text-align:center;">Quantity</th>
+        <th style="text-align:center; color:#9B7EC8; font-size:.85rem;">Avg/week</th>
+        <th style="text-align:center;">Min Amount</th><th style="text-align:center; white-space:nowrap;">Stock on Hand</th>
         </tr>
       </thead>
       <tbody id="retail-body">
       {% for p in retail_products %}
       <tr data-search="{{ p['name'].lower() }}">
         <td style="font-weight:500; color:#2C1A3E;">{{ p['name'] }}</td>
-        <td style="text-align:center;">
-          <input type="number" name="qty_{{ p['id'] }}" value="0" min="0" step="1"
+      <td style="text-align:center; color:#9B7EC8; font-size:.9rem; font-weight:500;">{{ avg_map.get(p['name'], '-') }}</td>
+                        <td style="text-align:center;"><input type="number" name="min_{{ p['id'] }}" value="{{ min_map.get(p['name'], 0) }}" style="width:90%; text-align:center; border:1.5px solid #D5C8E8; border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700; color:#3D1F5C;"></td>
+                <td>
+                <input type="number" name="qty_{{ p['id'] }}" value="0" min="0" step="1"
                  class="st-qty" data-cat="retail"
-                 style="width:80px; text-align:center; border:1.5px solid #D5C8E8;
+                 style="width:90%; text-align:center; border:1.5px solid #D5C8E8;
                         border-radius:6px; padding:.3rem .35rem; font-size:.95rem; font-weight:700;
                         color:#3D1F5C;"
                  oninput="updateCount(this)">
