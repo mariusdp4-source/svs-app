@@ -6,7 +6,10 @@
     <h2>📦 Stock Take</h2>
     <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem;">Huidige minimum vlakke en laaste stocktelling</p>
   </div>
-  <a href="/ho/stocktake/new" class="btn btn-primary">+ New Stock Take</a>
+  <div style="display:flex; gap:.5rem;">
+    <a href="/ho/restock" class="btn btn-secondary">🛒 Restock Order</a>
+    <a href="/ho/stocktake/new" class="btn btn-primary">+ New Stock Take</a>
+  </div>
 </div>
 
 <div class="card" style="margin-bottom:1.5rem;">
@@ -48,7 +51,7 @@
 
 {% if takes %}
 <div class="card">
-  <h3 style="margin-bottom:1rem; color:#3D1F5C; font-size:1rem;">Vorige Stocktellings</h3>
+  <h3 style="margin-bottom:1rem; color:#3D1F5C; font-size:1rem;">Previous Stock Takes</h3>
   <table class="table">
     <thead>
       <tr>

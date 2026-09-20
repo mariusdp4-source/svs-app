@@ -1,0 +1,97 @@
+{% extends "../base.html" %}
+{% block title %}Restock Order{% end %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>🛒 Restock Order</h2>
+    <p style="color:#7A6B8A; font-size:.875rem; margin-top:.2rem;">
+      Grouped by supplier — To Order = Min Amount + Outstanding − Stock on Hand
+    </p>
+  </div>
+  <div style="display:flex; gap:.5rem;">
+    <label style="display:flex; align-items:center; gap:.4rem; font-size:.85rem; color:#7A6B8A;">
+      <input type="checkbox" id="show-all" onchange="toggleAll()"> Show all products
+    </label>
+    <a href="/ho/stocktake" class="btn btn-ghost">← Stock Take</a>
+    <a href="/ho/restock/word" class="btn btn-secondary">📄 Word</a>
+  </div>
+</div>
+
+{% for pair in supplier_list %}
+{% set sup = pair[0] %}
+{% set items = pair[1] %}
+{% set has_orders = len([i for i in items if i['to_order'] > 0]) > 0 %}
+<div class="card supplier-block {% if not has_orders %}no-orders{% end %}" style="margin-bottom:1rem; {% if not has_orders %}display:none;{% end %}">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.75rem;">
+    <h3 style="color:#3D1F5C; font-size:1rem; margin:0;">🏢 {{ sup }}
+      <span style="background:#EAE2F4; color:#7A6B8A; border-radius:10px; padding:.1rem .5rem; font-size:.8rem; font-weight:500; margin-left:.5rem;">
+        {{ len([i for i in items if i['to_order'] > 0]) }} items to order
+      </span>
+    </h3>
+  </div>
+  <table class="table" style="width:100%; table-layout:fixed;">
+    <colgroup>
+      <col style="width:32%"><col style="width:13%"><col style="width:13%"><col style="width:13%"><col style="width:13%"><col style="width:13%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th style="text-align:center;">Stock on Hand</th>
+        <th style="text-align:center;">Min Amount</th>
+        <th style="text-align:center; color:#E07B3F;">Outstanding</th>
+        <th style="text-align:center; color:#C0392B; font-weight:700;">To Order</th>
+        <th style="text-align:center;">Adjust</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr class="product-row {% if item['to_order'] == 0 %}zero-order{% end %}" {% if item['to_order'] == 0 %}style="display:none;"{% end %}>
+        <td style="font-weight:500; color:#2C1A3E;">
+          {{ item['name'] }}
+          <span style="color:#9B7EC8; font-size:.78rem; margin-left:.3rem;">{{ item['category'] }}</span>
+        </td>
+        <td style="text-align:center; color:#3D1F5C;">{{ item['soh'] }}</td>
+        <td style="text-align:center; font-weight:600; color:#2C1A3E;">{{ item['min_amt'] }}</td>
+        <td style="text-align:center; color:#E07B3F; font-weight:600;">{{ item['outstanding'] if item['outstanding'] > 0 else '-' }}</td>
+        <td style="text-align:center;">
+          <span style="background:#FDECEA; color:#C0392B; border-radius:8px; padding:.15rem .5rem; font-weight:700;">
+            {{ item['to_order'] }}
+          </span>
+        </td>
+        <td style="text-align:center;">
+          <input type="number" value="{{ item['to_order'] }}" min="0"
+            style="width:70px; text-align:center; border:1.5px solid #D5C8E8; border-radius:6px; padding:.25rem; font-size:.9rem; font-weight:700; color:#3D1F5C;">
+        </td>
+      </tr>
+      {% end %}
+    </tbody>
+  </table>
+</div>
+{% end %}
+
+
+<style>
+@media print {
+  .page-header a, .page-header button, .page-header label,
+  input[type="number"], input[type="checkbox"] { display: none !important; }
+  .page-header { margin-bottom: 1rem; }
+  .supplier-block { display: block !important; page-break-inside: avoid; }
+  .zero-order { display: table-row !important; }
+  body { background: white !important; }
+  .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+  @page { margin: 1.5cm; }
+}
+</style>
+<script>
+function toggleAll() {
+  const showAll = document.getElementById('show-all').checked;
+  document.querySelectorAll('.supplier-block').forEach(b => {
+    b.style.display = showAll || b.classList.contains('no-orders') === false ? 'block' : 'none';
+    if (showAll) b.style.display = 'block';
+  });
+  document.querySelectorAll('.zero-order').forEach(r => {
+    r.style.display = showAll ? '' : 'none';
+  });
+}
+</script>
+{% end %}
